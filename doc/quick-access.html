@@ -1,0 +1,316 @@
+<style>
+    .quick-access-panel {
+        position: fixed;
+        bottom: 0;
+        left: 50%;
+        background: rgba(40, 40, 40, 0.98);
+        border-radius: 12px 12px 0 0;
+        z-index: 1500;
+        min-width: 600px;
+        max-width: 90vw;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    .quick-access-drag-bar {
+        background: rgba(60, 60, 60, 0.95);
+        padding: 12px 15px;
+        border-radius: 12px 12px 0 0;
+        cursor: move;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .quick-access-controls {
+        display: flex;
+        gap: 5px;
+    }
+
+    .quick-access-content {
+        padding: 20px;
+    }
+
+    .hotkey-section {
+        margin-bottom: 25px;
+    }
+
+    .section-title {
+        color: #fff;
+        font-size: 16px;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .hotkey-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 10px;
+    }
+
+    .hotkey-btn {
+        background-image: linear-gradient( 110deg,  rgba(75,108,183,1) 11.3%, rgba(24,40,72,1) 99.3% );
+        border: none;
+        border-radius: 8px;
+        padding: 15px 10px;
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        font-family: inherit;
+    }
+
+    .hotkey-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+        opacity: 0.5;
+    }
+
+    .hotkey-btn:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .hotkey-btn i {
+        font-size: 24px;
+        margin-bottom: 5px;
+    }
+
+    .hotkey-btn span {
+        font-weight: 600;
+        font-size: 13px;
+        text-align: center;
+    }
+
+    .hotkey-btn small {
+        font-size: 11px;
+        opacity: 0.8;
+        text-align: center;
+    }
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+        .quick-access-panel {
+            min-width: 95vw;
+            left: 50%;
+        }
+
+        .hotkey-grid {
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        }
+
+        .hotkey-btn {
+            padding: 12px 8px;
+        }
+
+        .hotkey-btn span {
+            font-size: 11px;
+        }
+
+        .hotkey-btn small {
+            font-size: 9px;
+        }
+    }
+
+    /* Scrollbar styling */
+    .quick-access-panel::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .quick-access-panel::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.2);
+    }
+
+    .quick-access-panel::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 4px;
+    }
+
+    .quick-access-panel::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.5);
+    }
+</style>
+
+<div class="quick-access-drag-bar">
+    <span style="color: white; font-weight: 500;">Quick Access Hotkeys</span>
+    <div class="quick-access-controls">
+        <button class="ui mini icon inverted button" id="closeQuickAccess" title="Close">
+            <i class="times icon"></i>
+        </button>
+    </div>
+</div>
+
+<div class="quick-access-content">
+        <!-- Windows Hotkeys -->
+        <div class="hotkey-section">
+            <h4 class="section-title"><i class="windows icon"></i> Windows Hotkeys</h4>
+            <div class="hotkey-grid">
+                <button class="hotkey-btn" data-action="ctrl-alt-del">
+                    <i class="shield alternate icon"></i>
+                    <span>Ctrl+Alt+Del</span>
+                    <small>Security</small>
+                </button>
+                <button class="hotkey-btn" data-action="win-shift-s">
+                    <i class="camera icon"></i>
+                    <span>Win+Shift+S</span>
+                    <small>Snip Tool</small>
+                </button>
+                <button class="hotkey-btn" data-action="win-l">
+                    <i class="lock icon"></i>
+                    <span>Win+L</span>
+                    <small>Lock PC</small>
+                </button>
+                <button class="hotkey-btn" data-action="win-d">
+                    <i class="desktop icon"></i>
+                    <span>Win+D</span>
+                    <small>Show Desktop</small>
+                </button>
+                <button class="hotkey-btn" data-action="win-e">
+                    <i class="folder open icon"></i>
+                    <span>Win+E</span>
+                    <small>Explorer</small>
+                </button>
+                <button class="hotkey-btn" data-action="win-r">
+                    <i class="terminal icon"></i>
+                    <span>Win+R</span>
+                    <small>Run Dialog</small>
+                </button>
+                <button class="hotkey-btn" data-action="ctrl-shift-esc">
+                    <i class="tasks icon"></i>
+                    <span>Ctrl+Shift+Esc</span>
+                    <small>Task Manager</small>
+                </button>
+                <button class="hotkey-btn" data-action="alt-f4">
+                    <i class="window close icon"></i>
+                    <span>Alt+F4</span>
+                    <small>Close Window</small>
+                </button>
+            </div>
+        </div>
+
+        <!-- Screenshot Hotkeys -->
+        <div class="hotkey-section">
+            <h4 class="section-title"><i class="camera icon"></i> Screenshot Hotkeys</h4>
+            <div class="hotkey-grid">
+                <button class="hotkey-btn" data-action="printscreen">
+                    <i class="windows icon"></i>
+                    <span>Print Screen</span>
+                    <small>Full Screen</small>
+                </button>
+                <button class="hotkey-btn" data-action="alt-printscreen">
+                    <i class="window maximize icon"></i>
+                    <span>Alt+Print Screen</span>
+                    <small>Active Window</small>
+                </button>
+                <button class="hotkey-btn" data-action="mac-cmd-shift-3">
+                    <i class="apple icon"></i>
+                    <span>⌘+Shift+3</span>
+                    <small>macOS Full</small>
+                </button>
+                <button class="hotkey-btn" data-action="mac-cmd-shift-4">
+                    <i class="apple icon"></i>
+                    <span>⌘+Shift+4</span>
+                    <small>macOS Area</small>
+                </button>
+            </div>
+        </div>
+
+        <!-- Common Hotkeys -->
+        <div class="hotkey-section">
+            <h4 class="section-title"><i class="wrench icon"></i> Common Hotkeys</h4>
+            <div class="hotkey-grid">
+                <!-- <button class="hotkey-btn" data-action="alt-tab">
+                    <i class="exchange icon"></i>
+                    <span>Alt+Tab</span>
+                    <small>Switch Apps</small>
+                </button> -->
+                <button class="hotkey-btn" data-action="f2">
+                    <i class="edit icon"></i>
+                    <span>F2</span>
+                    <small>Rename</small>
+                </button>
+                <button class="hotkey-btn" data-action="ctrl-c">
+                    <i class="copy icon"></i>
+                    <span>Ctrl+C</span>
+                    <small>Copy</small>
+                </button>
+                <button class="hotkey-btn" data-action="ctrl-v">
+                    <i class="paste icon"></i>
+                    <span>Ctrl+V</span>
+                    <small>Paste</small>
+                </button>
+                <button class="hotkey-btn" data-action="ctrl-z">
+                    <i class="undo icon"></i>
+                    <span>Ctrl+Z</span>
+                    <small>Undo</small>
+                </button>
+                <button class="hotkey-btn" data-action="ctrl-y">
+                    <i class="redo icon"></i>
+                    <span>Ctrl+Y</span>
+                    <small>Redo</small>
+                </button>
+                <button class="hotkey-btn" data-action="ctrl-a">
+                    <i class="hand pointer icon"></i>
+                    <span>Ctrl+A</span>
+                    <small>Select All</small>
+                </button>
+                <button class="hotkey-btn" data-action="ctrl-f">
+                    <i class="search icon"></i>
+                    <span>Ctrl+F</span>
+                    <small>Find</small>
+                </button>
+                <button class="hotkey-btn" data-action="ctrl-s">
+                    <i class="save icon"></i>
+                    <span>Ctrl+S</span>
+                    <small>Save</small>
+                </button>
+                <button class="hotkey-btn" data-action="ctrl-p">
+                    <i class="print icon"></i>
+                    <span>Ctrl+P</span>
+                    <small>Print</small>
+                </button>
+                <button class="hotkey-btn" data-action="f5">
+                    <i class="sync icon"></i>
+                    <span>F5</span>
+                    <small>Refresh</small>
+                </button>
+                <button class="hotkey-btn" data-action="ctrl-w">
+                    <i class="times circle icon"></i>
+                    <span>Ctrl+W</span>
+                    <small>Close Tab</small>
+                </button>
+            </div>
+        </div>
+
+        <!-- Linux Hotkeys -->
+        <div class="hotkey-section">
+            <h4 class="section-title"><i class="linux icon"></i> Linux Hotkeys</h4>
+            <div class="hotkey-grid">
+                <button class="hotkey-btn" data-action="ctrl-alt-t">
+                    <i class="terminal icon"></i>
+                    <span>Ctrl+Alt+T</span>
+                    <small>Terminal</small>
+                </button>
+                <button class="hotkey-btn" data-action="super-l">
+                    <i class="lock icon"></i>
+                    <span>Super+L</span>
+                    <small>Lock Screen</small>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="quick-access.js"></script>

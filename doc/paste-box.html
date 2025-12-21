@@ -1,0 +1,23 @@
+<div class="paste-box">
+    <h3 style="margin-top: 0;">Paste Text to Remote</h3>
+    <div class="paste-char-counter" id="pasteCharCounter">0 / 1000</div>
+    <textarea id="pasteTextarea" placeholder="Enter text to send to remote system..." maxlength="1000"></textarea>
+    <div id="pasteProgressBar" class="ui progress" style="display: none;">
+        <div class="bar"></div>
+    </div>
+    <div class="paste-box-buttons">
+        <button id="btnCancelPaste" class="ui orange button" style="display: none;">
+            <i class="stop icon"></i> Cancel
+        </button>
+        <button id="btnClearPaste" class="ui button">
+            <i class="eraser icon"></i> Clear
+        </button>
+        <button id="btnClosePaste" class="ui button">
+            <i class="times icon"></i> Close
+        </button>
+        <button id="btnSendPaste" class="ui primary button">
+            <i class="paper plane icon"></i> Send
+        </button>
+    </div>
+</div>
+<script src="paste-box.js"></script>
