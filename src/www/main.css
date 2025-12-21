@@ -1,0 +1,257 @@
+body {
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-sizing: border-box;
+    overflow: hidden;
+    background-color: black;
+}
+
+#video {
+    max-width: 100vw;
+    max-height: 100vh;
+    width: auto;
+    height: auto;
+    display: block;
+    margin: auto;
+    object-fit: contain;
+    z-index: 0;
+}
+
+#menu {
+    position: fixed;
+    top: 0px;
+    left: 50%;
+    width: 80%;
+    transform: translateX(-50%);
+    padding: 0.4em;
+    display: flex;
+    gap: 3px;
+    z-index: 1000;
+    background-color: rgba(255,255,255,0.9);
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+    align-items: center;
+}
+
+@media (max-width: 1280px) {
+    #menu {
+        width: calc(100% - 1em);
+    }
+}
+
+#touchscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 500;
+    user-select: none;
+}
+
+/* Paste Box Styles */
+.paste-box-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+.paste-box {
+    background: white;
+    padding: 2em;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 600px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+.paste-box textarea {
+    width: 100%;
+    min-height: 200px;
+    margin-bottom: 1em;
+    font-family: monospace;
+    resize: vertical;
+}
+
+.paste-box-buttons {
+    display: flex;
+    gap: 0.5em;
+    justify-content: flex-end;
+}
+
+.paste-char-counter {
+    text-align: right;
+    font-size: 0.9em;
+    color: #767676;
+    margin-bottom: 0.5em;
+}
+
+/* On-Screen Keyboard Styles */
+.onscreen-keyboard {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(40, 40, 40, 0.95);
+    padding: 10px;
+    border-radius: 8px 8px 0 0;
+    z-index: 1500;
+    min-width: 800px;
+    max-width: 95vw;
+}
+
+.onscreen-keyboard.fullwidth {
+    width: 100%;
+    max-width: 100%;
+    left: 0;
+    transform: none;
+    border-radius: 0;
+}
+
+.keyboard-drag-bar {
+    background: rgba(100, 100, 100, 0.5);
+    height: 30px;
+    margin: -10px -10px 10px -10px;
+    border-radius: 8px 8px 0 0;
+    cursor: move;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 10px;
+}
+
+.keyboard-controls {
+    display: flex;
+    gap: 5px;
+}
+
+.keyboard-row {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 5px;
+    justify-content: center;
+}
+
+.key {
+    background: linear-gradient(180deg, #f0f0f0, #d0d0d0);
+    border: 1px solid #999;
+    border-radius: 4px;
+    padding: 8px 12px;
+    min-width: 40px;
+    text-align: center;
+    cursor: pointer;
+    user-select: none;
+    font-weight: 500;
+    color: #333;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: all 0.1s;
+}
+
+.key:hover {
+    background: linear-gradient(180deg, #fff, #e0e0e0);
+    transform: translateY(-1px);
+}
+
+.key:active, .key.active {
+    background: linear-gradient(180deg, #4a9eff, #2078d4);
+    color: white;
+    transform: translateY(1px);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.key.held {
+    background: linear-gradient(180deg, #ff9800, #f57c00);
+    color: white;
+    box-shadow: 0 0 8px rgba(255, 152, 0, 0.6);
+}
+
+.key.wide {
+    min-width: 80px;
+}
+
+.key.wider {
+    min-width: 100px;
+}
+
+.key.widest {
+    min-width: 200px;
+}
+
+.key-label {
+    font-size: 12px;
+    display: block;
+}
+
+.key-sublabel {
+    font-size: 9px;
+    color: #666;
+    display: block;
+}
+
+/* Browser Warning Styles */
+#browserWarning {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.95);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.warning-content {
+    background: white;
+    padding: 3em;
+    border-radius: 12px;
+    max-width: 600px;
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+.warning-icon {
+    font-size: 64px;
+    color: #f2711c;
+    margin-bottom: 1em;
+}
+
+.warning-content h2 {
+    color: #db2828;
+    margin-bottom: 1em;
+}
+
+.warning-content p {
+    font-size: 1.1em;
+    line-height: 1.6;
+    margin-bottom: 1.5em;
+    color: #333;
+}
+
+.supported-browsers {
+    display: flex;
+    justify-content: center;
+    gap: 1em;
+    margin: 1.5em 0;
+    flex-wrap: wrap;
+}
+
+.browser-badge {
+    padding: 0.5em 1em;
+    background: #f0f0f0;
+    border-radius: 4px;
+    font-weight: 500;
+}

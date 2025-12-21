@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <meta name="description" content="DezKVM-Go | Local Mode">
+        <meta name="author" content="dezukvm.aroz.org">
+        <link rel="icon" type="image/png" href="favicon.png">
+        <title>DezKVM-Go</title>
+        <!-- jQuery -->
+        <script src="scripts/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+        <!-- Fomantic UI -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fomantic-ui/2.9.4/semantic.min.css" integrity="sha512-ySrYzxj+EI1e9xj/kRYqeDL5l1wW0IWY8pzHNTIZ+vc1D3Z14UDNPbwup4yOUmlRemYjgUXsUZ/xvCQU2ThEAw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/fomantic-ui/2.9.4/semantic.min.js" integrity="sha512-Y/wIVu+S+XJsDL7I+nL50kAVFLMqSdvuLqF2vMoRqiMkmvcqFjEpEgeu6Rx8tpZXKp77J8OUpMKy0m3jLYhbbw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <!-- Custom Styles -->
+        <link rel="stylesheet" href="main.css">
+    </head>
+<body>
+    <!-- Browser Compatibility Warning -->
+    <div id="browserWarning">
+        <div class="warning-content">
+            <div class="warning-icon">⚠️</div>
+            <h2>Unsupported Browser Detected</h2>
+            <p>
+                This application requires <strong>Chrome</strong>, <strong>Edge</strong>, or other <strong>Chromium-based browsers</strong> to function properly.
+            </p>
+            <p>
+                Your current browser does not support the Web Serial API, which is required for USB HID communication.
+            </p>
+            <div class="supported-browsers">
+                <div class="browser-badge">Google Chrome</div>
+                <div class="browser-badge">Microsoft Edge</div>
+                <div class="browser-badge">Opera</div>
+                <div class="browser-badge">Brave</div>
+            </div>
+            <p style="font-size: 0.9em; color: #666;">
+                Firefox and Safari are <strong>not supported</strong> at this time.
+            </p>
+            <button id="proceedAnyway" class="ui orange large button">
+                <i class="warning icon"></i> Proceed Anyway
+            </button>
+        </div>
+    </div>
+    <div id="menu">
+        <div style="margin-right: 10px;">
+            <img src="img/font_logo.svg" width="120" style="margin-top:0px;">
+        </div>
+     
+        <!-- Serial Ports -->
+        <button id="selectSerialPort" class="ui mini basic green icon button" title="Connect Serial"><i class="keyboard icon"></i></button>
+        <span id="selectedPort" style="margin-left: 5px; font-size: 0.9em;">Not Connected</span>
+        
+        <!-- Paste Box -->
+        <button id="showPasteBox" class="ui mini basic icon button" title="Show Paste Box" style="margin-left: 10px;"><i class="paste icon"></i></button>
+        <!-- Quick Access Buttons -->
+        <button id="btnQuickAccess" class="ui mini basic icon button" title="Quick Access Hotkeys"><i class="bolt icon"></i></button>
+        <!-- Screenshots -->
+        <button id="screenshotBtn" class="ui mini basic icon button" title="Take Screenshot"><i class="camera icon"></i></button>
+        <!-- On-screen Keyboard -->
+        <button id="btnOnscreenKeyboard" class="ui mini basic icon button" title="Toggle On-Screen Keyboard"><i class="keyboard outline icon"></i></button>
+        <!-- Fullscreen -->
+        <button id="fullscreenBtn" class="ui mini basic icon button" title="Fullscreen"><i class="expand icon"></i></button>
+
+        <!-- Software HID reset -->
+        <button id="resetHIDBtn" class="ui mini negative button" style="margin-left:auto;">Reset HID</button>
+        <!-- Hide menu button -->
+        <button id="hideMenuBtn" class="ui mini icon button"><i class="chevron up icon"></i></button>
+    </div>
+    <video id="video" autoplay playsinline style="width:100%;max-width:100%;"></video>
+    <div id="touchscreen"></div>
+    
+    <!-- Paste Box Modal -->
+    <div id="pasteBox" class="paste-box-container" style="display: none;"></div>
+
+    <!-- On-Screen Keyboard -->
+    <div id="onscreenKeyboard" class="onscreen-keyboard" style="display: none;"></div>
+    
+    <!-- Quick Access Hotkeys -->
+    <div id="quickAccess" class="quick-access-panel" style="display: none;"></div>
+    
+    <script src="local-kvm.js"></script>
+    <script>
+        // Check browser compatibility
+        function checkBrowserCompatibility() {
+            // Check if Web Serial API is supported (Chromium-based browsers)
+            const isChromiumBased = 'serial' in navigator;
+            
+            if (!isChromiumBased) {
+                // Show warning for unsupported browsers
+                document.getElementById('browserWarning').style.display = 'flex';
+            }
+        }
+
+        // Proceed anyway button handler
+        document.getElementById('proceedAnyway').addEventListener('click', () => {
+            document.getElementById('browserWarning').style.display = 'none';
+        });
+
+        // Check compatibility on page load
+        checkBrowserCompatibility();
+
+        const menu = document.getElementById('menu');
+        const hideMenuBtn = document.getElementById('hideMenuBtn');
+        
+        // Hide menu when button is clicked
+        hideMenuBtn.addEventListener('click', () => {
+            menu.style.display = 'none';
+            showMenuBtn.style.display = 'block';
+        });
+
+        // Create a show menu button
+        const showMenuBtn = document.createElement('button');
+        showMenuBtn.id = 'showMenuBtn';
+        showMenuBtn.className = 'ui mini icon button';
+        showMenuBtn.style.position = 'fixed';
+        showMenuBtn.style.top = '0.5em';
+        showMenuBtn.style.right = '0.5em';
+        showMenuBtn.style.zIndex = '1001';
+        showMenuBtn.style.display = 'none';
+        showMenuBtn.innerHTML = '<i class="chevron down icon"></i>';
+        document.body.appendChild(showMenuBtn);
+
+        // Show menu when show button is clicked
+        showMenuBtn.addEventListener('click', () => {
+            menu.style.display = 'flex';
+            showMenuBtn.style.display = 'none';
+        });
+        
+        // Initialize dropdowns
+        $('.ui.dropdown').dropdown();
+
+        // Load component HTML files
+        $('#onscreenKeyboard').load('onscreen-keyboard.html', function() {
+            console.log('On-Screen Keyboard loaded');
+        });
+        $('#pasteBox').load('paste-box.html', function() {
+            console.log('Paste Box loaded');
+        });
+        $('#quickAccess').load('quick-access.html', function() {
+            console.log('Quick Access loaded');
+        });
+
+        // Screenshot functionality
+        document.getElementById('screenshotBtn').addEventListener('click', async function() {
+            try {
+                const video = document.getElementById('video');
+                if (!video.srcObject) {
+                    $('body').toast({
+                        message: '<i class="warning icon"></i> No video stream available',
+                        class: 'warning'
+                    });
+                    return;
+                }
+
+                // Create a canvas to capture the video frame
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                // Convert canvas to blob
+                canvas.toBlob(async function(blob) {
+                    if (!blob) {
+                        $('body').toast({
+                            message: '<i class="exclamation icon"></i> Failed to capture screenshot',
+                            class: 'error'
+                        });
+                        return;
+                    }
+
+                    // Check if File System Access API is supported
+                    if ('showSaveFilePicker' in window) {
+                        try {
+                            // Generate default filename with timestamp
+                            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+                            const defaultFilename = `KVM-Screenshot-${timestamp}.png`;
+
+                            // Show save file picker
+                            const handle = await window.showSaveFilePicker({
+                                suggestedName: defaultFilename,
+                                types: [{
+                                    description: 'PNG Image',
+                                    accept: {'image/png': ['.png']}
+                                }]
+                            });
+
+                            // Write the file
+                            const writable = await handle.createWritable();
+                            await writable.write(blob);
+                            await writable.close();
+
+                            $('body').toast({
+                                message: '<i class="check icon"></i> Screenshot saved successfully',
+                                class: 'success'
+                            });
+                        } catch (err) {
+                            if (err.name !== 'AbortError') {
+                                console.error('Error saving file:', err);
+                                $('body').toast({
+                                    message: '<i class="exclamation icon"></i> Failed to save screenshot',
+                                    class: 'error'
+                                });
+                            }
+                        }
+                    } else {
+                        // Fallback: download the image
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+                        a.href = url;
+                        a.download = `KVM-Screenshot-${timestamp}.png`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+
+                        $('body').toast({
+                            message: '<i class="download icon"></i> Screenshot downloaded',
+                            class: 'info'
+                        });
+                    }
+                }, 'image/png');
+            } catch (error) {
+                console.error('Screenshot error:', error);
+                $('body').toast({
+                    message: '<i class="exclamation icon"></i> Error taking screenshot',
+                    class: 'error'
+                });
+            }
+        });
+
+        // Quick Access toggle
+        document.getElementById('btnQuickAccess').addEventListener('click', function() {
+            if (typeof toggleQuickAccess === 'function') {
+                toggleQuickAccess();
+            }
+        });
+
+        
+    </script>
+</body>
+</html>
