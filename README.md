@@ -27,13 +27,15 @@ A mini KVM over USB device for onsite engineers to use their laptop to control h
 
 ![](img/quickstart.png)
 
+
+
 ## Build the Hardware
 
 To build the hardware, you will need the following items
 
-- A DezKVM-Go PCB (See the `PCB` folder and the `how-to-place-order` folder on how to order them on NextPCB website)
-- A cheap MS2109 HDMI capture card, usually looks like this
-  <img src="img/README/image-20251221201852971.png" alt="image-20251221201852971" style="zoom:30%;" />
+- A DezKVM-Go PCB (See the `PCB` folder and the `how-to-place-order` folder on how to order them )
+  ![image-20251221203251642](img/README/image-20251221203251642.png)
+- A MS2109 HDMI capture card (usually around $7 - 9 USD a pcs)
 - A 3D printer (for the case, see `3D Models` folder)
 - M3x10 screws x 2
 - USB type-C cable x 2 and HDMI cable x 1
@@ -53,8 +55,6 @@ go build
 ```
 
 
-
- 
 
 ## Screenshots
 
