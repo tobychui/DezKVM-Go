@@ -21,7 +21,7 @@ A mini KVM over USB device for onsite engineers to use their laptop to control h
 
 1. Insert the DezKVM-Go host side USB port into your laptop using a USB type-C cable (located on the white / black side, depends on your device casing color)
 2. Insert the DezKVM-Go remote side USB port and HDMI port into the remote server or computer you want to control (located on the orange side)
-3. Visit the [DezKVM-Go control panel]() or if you are working online, start the usbkvm application and visit `https://localhost:8443/` using Chrome, Edge or any Chromium browsers that support Web-Serial API.
+3. Visit the [DezKVM-Go control panel](https://tobychui.github.io/DezKVM-Go/) or if you are working online, start the usbkvm application and visit `https://localhost:8443/` using Chrome, Edge or any Chromium browsers that support Web-Serial API.
 
 ## Quick Start
 
