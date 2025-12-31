@@ -9,7 +9,7 @@ A mini KVM over USB device for onsite engineers to use their laptop to control h
 ## Features
 
 - Small form factor , just 84 x 53 x 18mm
-- Cheap to build, costing just under $20 USD per unit
+- Cheap & Easy to build, costing just under $20 USD per unit
 - Fully featured software that do not require installing any apps
   - Live video and audio feeds
   - Paste box (host to remote computer through automatic virtual keyboard HID events)
@@ -29,7 +29,7 @@ A mini KVM over USB device for onsite engineers to use their laptop to control h
 
 
 
-## Build the Hardware
+## Building the Hardware
 
 To build the hardware, you will need the following items
 
@@ -40,9 +40,9 @@ To build the hardware, you will need the following items
 - M3x10 screws x 2
 - USB type-C cable x 2 and HDMI cable x 1
 
+For details, see the PCB folder.
 
-
-## Build the Software
+## Building the Software
 
 There is no need to build anything since all of the control code of this system is written in vanilla js in the web front-end. However, this project do come with a Golang written https server in which if you have difficulties deploying a website with https , you can use that https server to deploy a locally hosted version of the DezKVM viewer.
 
@@ -54,7 +54,7 @@ go mod tidy
 go build
 ```
 
-
+*Note: you will also need to configure the CH9329 chip to use the 115200 baudrate for the front-end to work. Please follow the instructions in CH9329 datasheet to perform the baudrate change procedures before use.*
 
 ## Screenshots
 
@@ -66,11 +66,27 @@ go build
 
 
 
+## DezKVM-Go Device
+
+Here are a few photos on the device itself if you are interested.
+
+![DSC00491](img/README/DSC00491.jpg)
+
+![DSC00499](img/README/DSC00499.jpg)
+
+![DSC00501](img/README/DSC00501.jpg)
+
+![DSC00515](img/README/DSC00515.jpg)
+
+![photo_2025-12-31_22-12-53](img/README/photo_2025-12-31_22-12-53.jpg)
+
+![photo_2025-12-29_20-14-56](img/README/photo_2025-12-29_20-14-56.jpg)
+
 ## License
 
-GPLv3
+Software: GPLv3
 
-
+Hardware: CC BY-NC-ND
 
 ## Sponsors
 
