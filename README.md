@@ -64,7 +64,7 @@ go build
 
 ![](img/5.jpg)
 
-
+![image-20260218134153419](img/README/image-20260218134153419.png)
 
 ## DezKVM-Go Device
 
