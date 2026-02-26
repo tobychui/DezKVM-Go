@@ -279,7 +279,7 @@ class HIDController {
         if (!serialPort || !serialPort.readable || !serialPort.writable) {
             return;
         }
-        const packet = [
+        let packet = [
             0x57, 0xAB, 0x00, 0x04, 0x07, 0x02,
             this.hidState.MouseButtons,
             xLSB,
@@ -301,7 +301,7 @@ class HIDController {
         // Ensure 0x80 is not used
         if (dx === 0x80) dx = 0x81;
         if (dy === 0x80) dy = 0x81;
-        const packet = [
+        let packet = [
             0x57, 0xAB, 0x00, 0x05, 0x05, 0x01,
             this.hidState.MouseButtons,
             dx,
