@@ -39,6 +39,11 @@ const HID_KEYS = {
     Z: 90,
     F: 70,
     P: 80,
+    X: 88,
+    Q: 81,
+    H: 72,
+    M: 77,
+    OPTION: 18, // Same as Alt
     KEY_3: 51,
     KEY_4: 52
 };
@@ -199,6 +204,67 @@ async function executeHotkey(action) {
             
             case 'mac-cmd-shift-4':
                 await sendKeyCombination([HID_KEYS.CMD, HID_KEYS.SHIFT, HID_KEYS.KEY_4]);
+                break;
+            
+            // MacOS Hotkeys
+            case 'cmd-z':
+                await sendKeyCombination([HID_KEYS.CMD, HID_KEYS.Z]);
+                break;
+            
+            case 'cmd-x':
+                await sendKeyCombination([HID_KEYS.CMD, HID_KEYS.X]);
+                break;
+            
+            case 'cmd-c':
+                await sendKeyCombination([HID_KEYS.CMD, HID_KEYS.C]);
+                break;
+            
+            case 'cmd-v':
+                await sendKeyCombination([HID_KEYS.CMD, HID_KEYS.V]);
+                break;
+            
+            case 'cmd-a':
+                await sendKeyCombination([HID_KEYS.CMD, HID_KEYS.A]);
+                break;
+            
+            case 'cmd-s':
+                await sendKeyCombination([HID_KEYS.CMD, HID_KEYS.S]);
+                break;
+            
+            case 'cmd-f':
+                await sendKeyCombination([HID_KEYS.CMD, HID_KEYS.F]);
+                break;
+            
+            case 'cmd-w':
+                await sendKeyCombination([HID_KEYS.CMD, HID_KEYS.W]);
+                break;
+            
+            case 'cmd-q':
+                await sendKeyCombination([HID_KEYS.CMD, HID_KEYS.Q]);
+                break;
+            
+            case 'cmd-space':
+                await sendKeyCombination([HID_KEYS.CMD, HID_KEYS.SPACE]);
+                break;
+            
+            case 'cmd-tab':
+                await sendKeyCombination([HID_KEYS.CMD, HID_KEYS.TAB]);
+                break;
+            
+            case 'cmd-option-esc':
+                await sendKeyCombination([HID_KEYS.CMD, HID_KEYS.OPTION, HID_KEYS.ESC]);
+                break;
+            
+            case 'cmd-h':
+                await sendKeyCombination([HID_KEYS.CMD, HID_KEYS.H]);
+                break;
+            
+            case 'cmd-m':
+                await sendKeyCombination([HID_KEYS.CMD, HID_KEYS.M]);
+                break;
+            
+            case 'cmd-option-d':
+                await sendKeyCombination([HID_KEYS.CMD, HID_KEYS.OPTION, HID_KEYS.D]);
                 break;
             
             // Common IT Hotkeys

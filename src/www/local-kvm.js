@@ -585,14 +585,31 @@ videoOverlayElement.addEventListener('contextmenu', (e) => {
 });
 
 // Mouse wheel (scroll)
+let invertScrollCheckboxEle = document.getElementById('invertScroll');
+let scrollSensitivity = 2; // Default scroll sensitivity
 videoOverlayElement.addEventListener('wheel', async (e) => {
     e.preventDefault();
-    let tilt = e.deltaY > 0 ? 1 : -1;
+    let tilt = e.deltaY > 0 ? scrollSensitivity : -scrollSensitivity;
+    
+    // Check if scroll inversion is enabled
+    if (invertScrollCheckboxEle && invertScrollCheckboxEle.checked) {
+        tilt = -tilt;  // Invert the scroll direction
+    }
+    
     await controller.MouseScroll(tilt);
 });
 
 // Keyboard events for HID emulation
 window.addEventListener('keydown', async (e) => {
+    // Check if "Ask on paste" is enabled and user pressed Ctrl+V
+    const askOnPasteCheckbox = document.getElementById('askOnPaste');
+    if (askOnPasteCheckbox && askOnPasteCheckbox.checked) {
+        // Allow Ctrl+V to be handled by paste-box.js
+        if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+            return; // Don't prevent default, let paste event fire
+        }
+    }
+    
     // Ignore repeated events
     //if (e.repeat) return;
     try {
@@ -609,6 +626,15 @@ window.addEventListener('keydown', async (e) => {
 });
 
 window.addEventListener('keyup', async (e) => {
+    // Check if "Ask on paste" is enabled and user released Ctrl+V
+    const askOnPasteCheckbox = document.getElementById('askOnPaste');
+    if (askOnPasteCheckbox && askOnPasteCheckbox.checked) {
+        // Allow Ctrl+V to be handled by paste-box.js
+        if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+            return; // Don't prevent default
+        }
+    }
+    
     try {
         if (e.key === 'Control' || e.key === 'Shift' || e.key === 'Alt' || e.key === 'Meta') {
             await controller.UnsetModifierKey(e.keyCode, e.location === KeyboardEvent.DOM_KEY_LOCATION_RIGHT);
@@ -621,7 +647,7 @@ window.addEventListener('keyup', async (e) => {
     }
 });
 
-document.getElementById('resetHIDBtn').addEventListener('click', async () => {
+document.getElementById('resetHIDMenuItem').addEventListener('click', async () => {
     try {
         await controller.softReset();
         $('body').toast({

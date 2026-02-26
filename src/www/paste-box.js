@@ -206,3 +206,145 @@ $('#showPasteBox').on('click', function(){
     showPasteBox();
 });
 
+// Intercept paste events when "Ask on paste" is enabled
+window.addEventListener('paste', async (e) => {
+    const askOnPasteCheckbox = document.getElementById('askOnPaste');
+    
+    // Only intercept if checkbox is enabled and paste box is not already active
+    if (!askOnPasteCheckbox || !askOnPasteCheckbox.checked || pasteBoxActive) {
+        return;
+    }
+    
+    // Prevent default paste behavior
+    e.preventDefault();
+    e.stopPropagation();
+    
+    try {
+        // Get clipboard content
+        const clipboardText = e.clipboardData.getData('text');
+        
+        if (!clipboardText) {
+            $('body').toast({
+                message: '<i class="yellow exclamation triangle icon"></i> Clipboard is empty',
+            });
+            return;
+        }
+        
+        // Truncate if too long
+        const textToUse = clipboardText.substring(0, PASTE_BOX_MAX_CHARS);
+        
+        // Fill paste box
+        //showPasteBox();
+        const textarea = document.getElementById('pasteTextarea');
+        textarea.value = textToUse;
+        updatePasteBoxCharCounter();
+        
+        // Show confirmation modal
+        showPasteConfirmationModal(textToUse);
+        
+    } catch (err) {
+        console.error('Error intercepting paste:', err);
+        $('body').toast({
+            message: '<i class="red exclamation icon"></i> Failed to capture clipboard content',
+            class: 'error'
+        });
+    }
+});
+
+// Show paste confirmation modal
+function showPasteConfirmationModal(clipboardText) {
+    // Remove existing modal if any
+    $('#pasteConfirmModal').remove();
+    
+    // Create modal HTML
+    const modalHtml = `
+        <div class="ui small modal" id="pasteConfirmModal">
+            <div class="header">
+                <i class="clipboard icon"></i> Paste Action
+            </div>
+            <div class="content">
+                <p>You pressed <strong>Ctrl+V</strong>. What would you like to do?</p>
+                <div class="ui message">
+                    <p><strong>Send Ctrl+V to Remote:</strong> Just sends the keyboard shortcut (remote system will paste from its own clipboard)</p>
+                    <p><strong>Send Clipboard Content:</strong> Types out the captured text character by character (${clipboardText.length} characters)</p>
+                </div>
+                <small>Tips: You can disable this confirmation in settings if you prefer to always send the clipboard content directly.</small>
+            </div>
+            <div class="actions">
+                <div class="ui cancel button">
+                    <i class="times icon"></i> Cancel
+                </div>
+                <div class="ui basic button" id="btnSendCtrlV">
+                    <i class="orange keyboard icon"></i> Send Ctrl+V to Remote
+                </div>
+                <div class="ui basic button" id="btnSendClipboard">
+                    <i class="blue paper plane icon"></i> Send Clipboard Content
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to body
+    $('body').append(modalHtml);
+    
+    // Initialize and show modal
+    $('#pasteConfirmModal').modal({
+        closable: true,
+        onHidden: function() {
+            $(this).remove();
+        }
+    }).modal('show');
+    
+    // Handle "Send Ctrl+V to Remote" button
+    $('#btnSendCtrlV').on('click', async function() {
+        $('#pasteConfirmModal').modal('hide');
+        await sendCtrlVToRemote();
+    });
+    
+    // Handle "Send Clipboard Content" button
+    $('#btnSendClipboard').on('click', async function() {
+        $('#pasteConfirmModal').modal('hide');
+        await sendPasteText();
+    });
+}
+
+// Send Ctrl+V keyboard combination to remote
+async function sendCtrlVToRemote() {
+    if (typeof controller === 'undefined' || !controller) {
+        $('body').toast({
+            message: '<i class="red times circle icon"></i> HID not connected',
+            class: 'error'
+        });
+        return;
+    }
+    
+    try {
+        // Press Ctrl
+        await controller.SetModifierKey(17, false); // Left Ctrl
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        // Press V
+        await controller.SendKeyboardPress(86); // V key
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        // Release V
+        await controller.SendKeyboardRelease(86);
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        // Release Ctrl
+        await controller.UnsetModifierKey(17, false);
+        
+        $('body').toast({
+            message: '<i class="green check circle icon"></i> Ctrl+V sent to remote',
+            class: 'success'
+        });
+        
+        closePasteBox();
+    } catch (err) {
+        console.error('Error sending Ctrl+V:', err);
+        $('body').toast({
+            message: '<i class="red exclamation icon"></i> Failed to send Ctrl+V',
+            class: 'error'
+        });
+    }
+}

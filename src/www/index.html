@@ -61,9 +61,31 @@
         <button id="btnOnscreenKeyboard" class="ui mini basic icon button" title="Toggle On-Screen Keyboard"><i class="keyboard outline icon"></i></button>
         <!-- Fullscreen -->
         <button id="fullscreenBtn" class="ui mini basic icon button" title="Fullscreen"><i class="expand icon"></i></button>
-
-        <!-- Software HID reset -->
-        <button id="resetHIDBtn" class="ui mini negative button" style="margin-left:auto;">Reset HID</button>
+        
+        <!-- Settings Dropdown -->
+        <div class="ui mini dropdown basic button" style="margin-left: auto;">
+            <i class="blue cog icon"></i> Advanced Settings
+            <i class="dropdown icon"></i>
+            <div class="menu">
+                <div class="item">
+                    <div class="ui checkbox">
+                        <input type="checkbox" name="invertScroll" id="invertScroll">
+                        <label>Invert Scrollwheel</label>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="ui checkbox">
+                        <input type="checkbox" name="askOnPaste" id="askOnPaste" checked>
+                        <label>Ask on Ctrl + V</label>
+                    </div>
+                </div>
+                <div class="divider"></div>
+                <div class="item" id="resetHIDMenuItem">
+                    <i class="redo icon"></i> Reset HID
+                </div>
+            </div>
+        </div>
+        
         <!-- Hide menu button -->
         <button id="hideMenuBtn" class="ui mini icon button"><i class="chevron up icon"></i></button>
     </div>
@@ -128,7 +150,12 @@
         });
         
         // Initialize dropdowns
-        $('.ui.dropdown').dropdown();
+        $('.ui.dropdown').dropdown({
+            action: 'nothing'  // Prevent dropdown from closing when clicking checkbox
+        });
+        
+        // Initialize checkbox
+        $('.ui.checkbox').checkbox();
 
         // Load component HTML files
         $('#onscreenKeyboard').load('onscreen-keyboard.html', function() {

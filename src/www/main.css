@@ -98,6 +98,11 @@ body {
     margin-bottom: 0.5em;
 }
 
+#pasteConfirmModal .message p {
+    margin: 0.5em 0;
+    font-size: 0.95em;
+}
+
 /* On-Screen Keyboard Styles */
 .onscreen-keyboard {
     position: fixed;
