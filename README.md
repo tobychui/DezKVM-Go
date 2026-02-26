@@ -6,6 +6,8 @@
 
 A mini KVM over USB device for onsite engineers to use their laptop to control headless computers or servers.
 
+If you are looking for an IP-KVM solution, take a look at the [DezKVM](https://github.com/tobychui/DezKVM) Project!
+
 ## Features
 
 - Small form factor , just 84 x 53 x 18mm
