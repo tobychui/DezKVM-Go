@@ -559,24 +559,68 @@ videoOverlayElement.addEventListener('mouseup', async (e) => {
     }
 });
 
-// Mouse move (absolute positioning)
-videoOverlayElement.addEventListener('mousemove', async (e) => {
-    const rect = videoOverlayElement.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const width = rect.width;
-    const height = rect.height;
-    const offsetX = x / width;
-    const offsetY = y / height;
-    //console.log('Offset ratio:', { offsetX, offsetY });
+// Relative mouse mode: toggle via checkbox
+let relativeMouseCheckbox = document.getElementById('relativeMouse');
+if (relativeMouseCheckbox) {
+    relativeMouseCheckbox.addEventListener('change', function () {
+        controller.Config.AbsoluteMode = !this.checked;
+        if (this.checked) {
+            // Enter relative mode – request pointer lock so cursor stays captured
+            videoOverlayElement.requestPointerLock();
+            $('body').toast({
+                message: '<i class="arrows alternate icon"></i> Relative mouse mode enabled'
+            });
+        } else {
+            // Exit relative mode – release pointer lock
+            if (document.pointerLockElement === videoOverlayElement) {
+                document.exitPointerLock();
+            }
+            $('body').toast({
+                message: '<i class="mouse pointer icon"></i> Absolute mouse mode enabled'
+            });
+        }
+    });
+}
 
-    const absX = Math.round(offsetX * 4095);
-    const absY = Math.round(offsetY * 4095);
+// Re-request pointer lock on click when in relative mode
+videoOverlayElement.addEventListener('click', function () {
+    if (!controller.Config.AbsoluteMode && document.pointerLockElement !== videoOverlayElement) {
+        videoOverlayElement.requestPointerLock();
+    }
+});
+
+// Mouse move – supports both absolute and relative modes
+videoOverlayElement.addEventListener('mousemove', async (e) => {
     if (controller.Config.AbsoluteMode) {
+        // Absolute positioning
+        const rect = videoOverlayElement.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const width = rect.width;
+        const height = rect.height;
+        const offsetX = x / width;
+        const offsetY = y / height;
+
+        const absX = Math.round(offsetX * 4095);
+        const absY = Math.round(offsetY * 4095);
         controller.hidState.MousePosition.x = absX;
         controller.hidState.MousePosition.y = absY;
+        await controller.MouseMoveAbsolute(absX & 0xFF, (absX >> 8) & 0xFF, absY & 0xFF, (absY >> 8) & 0xFF);
+    } else {
+        // Relative positioning – use movementX/Y for pointer-locked delta
+        let dx = Math.round(e.movementX);
+        let dy = Math.round(e.movementY);
+
+        // Clamp to signed-byte range (-127 to 127, skip 0x80)
+        dx = Math.max(-127, Math.min(127, dx));
+        dy = Math.max(-127, Math.min(127, dy));
+
+        // Convert to unsigned byte for the HID packet
+        if (dx < 0) dx = 256 + dx;
+        if (dy < 0) dy = 256 + dy;
+
+        await controller.MouseMoveRelative(dx, dy, 0);
     }
-    await controller.MouseMoveAbsolute(absX & 0xFF, (absX >> 8) & 0xFF, absY & 0xFF, (absY >> 8) & 0xFF);
 });
 
 // Context menu disable (for right click)
