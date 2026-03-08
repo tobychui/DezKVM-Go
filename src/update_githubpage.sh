@@ -38,6 +38,7 @@ find "$DEST_DIR" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
 # Copy all files from source to destination
 echo "Copying files..."
 cp -r "$SRC_DIR"/* "$DEST_DIR"/
+touch "$DEST_DIR"/.nojekyll  # Create .nojekyll to prevent GitHub Pages from ignoring files with underscores
 
 echo ""
 echo "==================================="
