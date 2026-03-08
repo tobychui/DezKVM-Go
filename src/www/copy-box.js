@@ -306,13 +306,13 @@ async function performOCR() {
         cbLog('OCR complete – extracted', copyBoxRawText.length, 'characters');
 
         if (!result.data.text.trim()) {
-            $('body').toast({ message: '<i class="info circle icon"></i> No text detected in the selected area', class: 'info' });
+            $('body').toast({ message: '<i class="blue info circle icon"></i> No text detected in the selected area' });
         }
     } catch (err) {
         console.error('OCR error:', err);
         statusDiv.style.display = 'none';
         textarea.value = '';
-        $('body').toast({ message: '<i class="exclamation icon"></i> OCR failed: ' + err.message, class: 'error' });
+        $('body').toast({ message: '<i class="red exclamation icon"></i> OCR failed: ' + err.message, class: 'error' });
     }
 }
 
@@ -321,7 +321,7 @@ function copyBoxCopyText() {
     cbLog('copyBoxCopyText called');
     const textarea = document.getElementById('copyBoxTextarea');
     if (!textarea || !textarea.value) {
-        $('body').toast({ message: '<i class="info circle icon"></i> Nothing to copy', class: 'info' });
+        $('body').toast({ message: '<i class="blue info circle icon"></i> Nothing to copy' });
         return;
     }
     navigator.clipboard.writeText(textarea.value).then(function () {

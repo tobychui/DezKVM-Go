@@ -742,6 +742,108 @@ function cancelPasteText() {
     });
 }
 
+/*
+    Mouse Jiggler
+    When enabled, after 30 seconds of no user activity the mouse will
+    jiggle left/right every 5 seconds to prevent the remote machine from
+    going to sleep.  Any user interaction stops the jiggle immediately
+    and restarts the inactivity timer.
+*/
+(function () {
+    const IDLE_TIMEOUT_MS = 30000;   // 30 seconds of inactivity before jiggling
+    const JIGGLE_INTERVAL_MS = 5000; // jiggle every 5 seconds
+    const JIGGLE_AMOUNT = 10;         // pixels to move left / right
+
+    let jiggleEnabled = false;
+    let idleTimer = null;
+    let jiggleTimer = null;
+    let jiggleDirection = 1;          // 1 = right, -1 = left
+
+    const mouseJiggCheckbox = document.getElementById('mouseJigg');
+
+    // ---- helpers ----
+
+    function stopJiggle() {
+        if (jiggleTimer) {
+            clearInterval(jiggleTimer);
+            jiggleTimer = null;
+        }
+    }
+
+    function resetIdleTimer() {
+        // Stop any ongoing jiggle
+        stopJiggle();
+
+        // Clear previous idle timer
+        if (idleTimer) {
+            clearTimeout(idleTimer);
+            idleTimer = null;
+        }
+
+        // Only start the idle countdown when the feature is enabled
+        if (!jiggleEnabled) return;
+
+        idleTimer = setTimeout(() => {
+            // Start jiggling
+            jiggleDirection = 1;
+            doJiggle(); // immediate first jiggle
+            jiggleTimer = setInterval(doJiggle, JIGGLE_INTERVAL_MS);
+        }, IDLE_TIMEOUT_MS);
+    }
+
+    async function doJiggle() {
+        if (!serialPort || !serialPort.readable || !serialPort.writable) return;
+        try {
+            // Move in the current direction
+            let dx = JIGGLE_AMOUNT * jiggleDirection;
+            if (dx < 0) dx = 256 + dx; // convert to unsigned byte
+            await controller.MouseMoveRelative(dx, 0, 0);
+
+            // Flip direction for next time so the cursor returns
+            jiggleDirection *= -1;
+        } catch (e) {
+            // Ignore – serial port may have been closed
+        }
+    }
+
+    // ---- checkbox toggle ----
+
+    if (mouseJiggCheckbox) {
+        mouseJiggCheckbox.addEventListener('change', function () {
+            jiggleEnabled = this.checked;
+            if (jiggleEnabled) {
+                resetIdleTimer();
+                $('body').toast({
+                    message: '<i class="mouse pointer icon"></i> Mouse jiggler enabled (activates after 30 s idle)'
+                });
+            } else {
+                stopJiggle();
+                if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+                $('body').toast({
+                    message: '<i class="mouse pointer icon"></i> Mouse jiggler disabled'
+                });
+            }
+        });
+    }
+
+    // ---- user-activity listeners (reset idle timer) ----
+
+    const activityEvents = ['mousemove', 'mousedown', 'mouseup', 'wheel', 'touchstart', 'touchmove'];
+    activityEvents.forEach(evt => {
+        videoOverlayElement.addEventListener(evt, () => {
+            if (jiggleEnabled) resetIdleTimer();
+        });
+    });
+
+    // Keyboard activity
+    window.addEventListener('keydown', () => {
+        if (jiggleEnabled) resetIdleTimer();
+    });
+    window.addEventListener('keyup', () => {
+        if (jiggleEnabled) resetIdleTimer();
+    });
+})();
+
 
 /* 
     Video and Audio Capture with Single Permission Request
