@@ -1,0 +1,64 @@
+<!-- Copy Box: Area-select OCR from video viewport -->
+
+<!-- Selection overlay – covers the viewport while user draws a rectangle -->
+<div id="copyBoxOverlay" class="copy-box-overlay" style="display:none;">
+    <canvas id="copyBoxCanvas" class="copy-box-canvas"></canvas>
+    <div class="copy-box-hint">Click and drag to select an area for OCR</div>
+</div>
+
+<!-- Language picker popup – appears near the selected area -->
+<div id="copyBoxLangPopup" class="copy-box-lang-popup" style="display:none;">
+    <div class="copy-box-lang-inner">
+        <label><strong>OCR Language</strong></label>
+        <select id="copyBoxLangSelect" class="ui dropdown copy-box-lang-select">
+            <option value="eng" selected>English</option>
+            <option value="chi_sim">Chinese (Simplified)</option>
+            <option value="chi_tra">Chinese (Traditional)</option>
+            <option value="jpn">Japanese</option>
+            <option value="kor">Korean</option>
+            <option value="fra">French</option>
+            <option value="deu">German</option>
+            <option value="spa">Spanish</option>
+            <option value="por">Portuguese</option>
+            <option value="ita">Italian</option>
+            <option value="rus">Russian</option>
+            <option value="ara">Arabic</option>
+            <option value="hin">Hindi</option>
+            <option value="tha">Thai</option>
+            <option value="vie">Vietnamese</option>
+            <option value="nld">Dutch</option>
+            <option value="pol">Polish</option>
+            <option value="tur">Turkish</option>
+            <option value="ukr">Ukrainian</option>
+            <option value="swe">Swedish</option>
+        </select>
+        <div class="copy-box-lang-buttons">
+            <button id="copyBoxCancel" class="ui mini button"><i class="times icon"></i> Cancel</button>
+            <button id="copyBoxOk" class="ui mini primary button"><i class="check icon"></i> OK</button>
+        </div>
+    </div>
+</div>
+
+<!-- Result popup – shows OCR text for the user to copy -->
+<div id="copyBoxResult" class="copy-box-result-container" style="display:none;">
+    <div class="copy-box-result">
+        <h3 style="margin-top:0;">Extracted Text</h3>
+        <div id="copyBoxStatus" class="copy-box-status" style="display:none;">
+            <div class="ui active inline small loader"></div>
+            <span id="copyBoxStatusText">Initializing OCR…</span>
+        </div>
+        <textarea id="copyBoxTextarea" readonly placeholder="OCR result will appear here…"></textarea>
+        <div class="copy-box-options">
+            <div class="ui checkbox">
+                <input type="checkbox" id="copyBoxTrimSpaces">
+                <label>Remove spaces (useful for CJK languages)</label>
+            </div>
+        </div>
+        <div class="copy-box-result-buttons">
+            <button id="copyBoxCopyBtn" class="ui basic button"><i class="green copy icon"></i> Copy</button>
+            <button id="copyBoxCloseBtn" class="ui basic button"><i class="times icon"></i> Close</button>
+        </div>
+    </div>
+</div>
+
+<script src="copy-box.js"></script>

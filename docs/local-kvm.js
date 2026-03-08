@@ -559,24 +559,68 @@ videoOverlayElement.addEventListener('mouseup', async (e) => {
     }
 });
 
-// Mouse move (absolute positioning)
-videoOverlayElement.addEventListener('mousemove', async (e) => {
-    const rect = videoOverlayElement.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const width = rect.width;
-    const height = rect.height;
-    const offsetX = x / width;
-    const offsetY = y / height;
-    //console.log('Offset ratio:', { offsetX, offsetY });
+// Relative mouse mode: toggle via checkbox
+let relativeMouseCheckbox = document.getElementById('relativeMouse');
+if (relativeMouseCheckbox) {
+    relativeMouseCheckbox.addEventListener('change', function () {
+        controller.Config.AbsoluteMode = !this.checked;
+        if (this.checked) {
+            // Enter relative mode – request pointer lock so cursor stays captured
+            videoOverlayElement.requestPointerLock();
+            $('body').toast({
+                message: '<i class="arrows alternate icon"></i> Relative mouse mode enabled'
+            });
+        } else {
+            // Exit relative mode – release pointer lock
+            if (document.pointerLockElement === videoOverlayElement) {
+                document.exitPointerLock();
+            }
+            $('body').toast({
+                message: '<i class="mouse pointer icon"></i> Absolute mouse mode enabled'
+            });
+        }
+    });
+}
 
-    const absX = Math.round(offsetX * 4095);
-    const absY = Math.round(offsetY * 4095);
+// Re-request pointer lock on click when in relative mode
+videoOverlayElement.addEventListener('click', function () {
+    if (!controller.Config.AbsoluteMode && document.pointerLockElement !== videoOverlayElement) {
+        videoOverlayElement.requestPointerLock();
+    }
+});
+
+// Mouse move – supports both absolute and relative modes
+videoOverlayElement.addEventListener('mousemove', async (e) => {
     if (controller.Config.AbsoluteMode) {
+        // Absolute positioning
+        const rect = videoOverlayElement.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const width = rect.width;
+        const height = rect.height;
+        const offsetX = x / width;
+        const offsetY = y / height;
+
+        const absX = Math.round(offsetX * 4095);
+        const absY = Math.round(offsetY * 4095);
         controller.hidState.MousePosition.x = absX;
         controller.hidState.MousePosition.y = absY;
+        await controller.MouseMoveAbsolute(absX & 0xFF, (absX >> 8) & 0xFF, absY & 0xFF, (absY >> 8) & 0xFF);
+    } else {
+        // Relative positioning – use movementX/Y for pointer-locked delta
+        let dx = Math.round(e.movementX);
+        let dy = Math.round(e.movementY);
+
+        // Clamp to signed-byte range (-127 to 127, skip 0x80)
+        dx = Math.max(-127, Math.min(127, dx));
+        dy = Math.max(-127, Math.min(127, dy));
+
+        // Convert to unsigned byte for the HID packet
+        if (dx < 0) dx = 256 + dx;
+        if (dy < 0) dy = 256 + dy;
+
+        await controller.MouseMoveRelative(dx, dy, 0);
     }
-    await controller.MouseMoveAbsolute(absX & 0xFF, (absX >> 8) & 0xFF, absY & 0xFF, (absY >> 8) & 0xFF);
 });
 
 // Context menu disable (for right click)
@@ -697,6 +741,108 @@ function cancelPasteText() {
         message: '<i class="orange exclamation icon"></i> Paste operation cancelled'
     });
 }
+
+/*
+    Mouse Jiggler
+    When enabled, after 30 seconds of no user activity the mouse will
+    jiggle left/right every 5 seconds to prevent the remote machine from
+    going to sleep.  Any user interaction stops the jiggle immediately
+    and restarts the inactivity timer.
+*/
+(function () {
+    const IDLE_TIMEOUT_MS = 30000;   // 30 seconds of inactivity before jiggling
+    const JIGGLE_INTERVAL_MS = 5000; // jiggle every 5 seconds
+    const JIGGLE_AMOUNT = 10;         // pixels to move left / right
+
+    let jiggleEnabled = false;
+    let idleTimer = null;
+    let jiggleTimer = null;
+    let jiggleDirection = 1;          // 1 = right, -1 = left
+
+    const mouseJiggCheckbox = document.getElementById('mouseJigg');
+
+    // ---- helpers ----
+
+    function stopJiggle() {
+        if (jiggleTimer) {
+            clearInterval(jiggleTimer);
+            jiggleTimer = null;
+        }
+    }
+
+    function resetIdleTimer() {
+        // Stop any ongoing jiggle
+        stopJiggle();
+
+        // Clear previous idle timer
+        if (idleTimer) {
+            clearTimeout(idleTimer);
+            idleTimer = null;
+        }
+
+        // Only start the idle countdown when the feature is enabled
+        if (!jiggleEnabled) return;
+
+        idleTimer = setTimeout(() => {
+            // Start jiggling
+            jiggleDirection = 1;
+            doJiggle(); // immediate first jiggle
+            jiggleTimer = setInterval(doJiggle, JIGGLE_INTERVAL_MS);
+        }, IDLE_TIMEOUT_MS);
+    }
+
+    async function doJiggle() {
+        if (!serialPort || !serialPort.readable || !serialPort.writable) return;
+        try {
+            // Move in the current direction
+            let dx = JIGGLE_AMOUNT * jiggleDirection;
+            if (dx < 0) dx = 256 + dx; // convert to unsigned byte
+            await controller.MouseMoveRelative(dx, 0, 0);
+
+            // Flip direction for next time so the cursor returns
+            jiggleDirection *= -1;
+        } catch (e) {
+            // Ignore – serial port may have been closed
+        }
+    }
+
+    // ---- checkbox toggle ----
+
+    if (mouseJiggCheckbox) {
+        mouseJiggCheckbox.addEventListener('change', function () {
+            jiggleEnabled = this.checked;
+            if (jiggleEnabled) {
+                resetIdleTimer();
+                $('body').toast({
+                    message: '<i class="mouse pointer icon"></i> Mouse jiggler enabled (activates after 30 s idle)'
+                });
+            } else {
+                stopJiggle();
+                if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+                $('body').toast({
+                    message: '<i class="mouse pointer icon"></i> Mouse jiggler disabled'
+                });
+            }
+        });
+    }
+
+    // ---- user-activity listeners (reset idle timer) ----
+
+    const activityEvents = ['mousemove', 'mousedown', 'mouseup', 'wheel', 'touchstart', 'touchmove'];
+    activityEvents.forEach(evt => {
+        videoOverlayElement.addEventListener(evt, () => {
+            if (jiggleEnabled) resetIdleTimer();
+        });
+    });
+
+    // Keyboard activity
+    window.addEventListener('keydown', () => {
+        if (jiggleEnabled) resetIdleTimer();
+    });
+    window.addEventListener('keyup', () => {
+        if (jiggleEnabled) resetIdleTimer();
+    });
+})();
 
 
 /* 

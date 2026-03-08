@@ -52,7 +52,9 @@
         <span id="selectedPort" style="margin-left: 5px; font-size: 0.9em;">Not Connected</span>
         
         <!-- Paste Box -->
-        <button id="showPasteBox" class="ui mini basic icon button" title="Show Paste Box" style="margin-left: 10px;"><i class="paste icon"></i></button>
+        <button id="showPasteBox" class="ui mini basic icon button" title="Paste to Remote" style="margin-left: 10px;"><i class="paste icon"></i></button>
+        <!-- Copy Box -->
+        <button id="showCopyBox" class="ui mini basic icon button" title="Copy via OCR"><i class="copy icon"></i></button>
         <!-- Quick Access Buttons -->
         <button id="btnQuickAccess" class="ui mini basic icon button" title="Quick Access Hotkeys"><i class="bolt icon"></i></button>
         <!-- Screenshots -->
@@ -71,6 +73,18 @@
                     <div class="ui checkbox">
                         <input type="checkbox" name="invertScroll" id="invertScroll">
                         <label>Invert Scrollwheel</label>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="ui checkbox">
+                        <input type="checkbox" name="relativeMouse" id="relativeMouse">
+                        <label>Relative Mouse</label>
+                    </div>
+                </div>
+                <div class="item">
+                    <div class="ui checkbox">
+                        <input type="checkbox" name="mouseJigg" id="mouseJigg">
+                        <label>Mouse Jigger</label>
                     </div>
                 </div>
                 <div class="item">
@@ -100,6 +114,9 @@
     
     <!-- Quick Access Hotkeys -->
     <div id="quickAccess" class="quick-access-panel" style="display: none;"></div>
+
+    <!-- Copy Box -->
+    <div id="copyBox"></div>
     
     <script src="local-kvm.js"></script>
     <script>
@@ -166,6 +183,9 @@
         });
         $('#quickAccess').load('quick-access.html', function() {
             console.log('Quick Access loaded');
+        });
+        $('#copyBox').load('copy-box.html', function() {
+            console.log('Copy Box loaded');
         });
 
         // Screenshot functionality
@@ -262,6 +282,18 @@
         document.getElementById('btnQuickAccess').addEventListener('click', function() {
             if (typeof toggleQuickAccess === 'function') {
                 toggleQuickAccess();
+            }
+        });
+
+        // Copy Box toggle
+        document.getElementById('showCopyBox').addEventListener('click', function() {
+            if (typeof startCopyBoxSelection === 'function') {
+                startCopyBoxSelection();
+            } else {
+                $('body').toast({
+                    message: '<i class="warning icon"></i> Copy box not loaded yet',
+                    class: 'warning'
+                });
             }
         });
 
