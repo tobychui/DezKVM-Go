@@ -18,7 +18,10 @@ If you are looking for an IP-KVM solution, take a look at the [DezKVM](https://g
   - On-screen keyboard
   - Commonly used Hot-key and macros
   - Take Screenshots
-
+- Advanced Settings
+  - Invert mouse scroll wheel direction (for Windows / MacOS cross control)
+  - Absolute / Relative mode for mouse
+  
 ## Usage
 
 1. Insert the DezKVM-Go host side USB port into your laptop using a USB type-C cable (located on the white / black side, depends on your device casing color)
