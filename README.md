@@ -84,6 +84,13 @@ Here are a few photos on the device itself if you are interested.
 
 ![photo_2025-12-29_20-14-56](img/README/photo_2025-12-29_20-14-56.jpg)
 
+### Buy a Ready-to-use Device
+If you’d rather skip the build, I’ve put together some DezKVM Go devices that are ready to go. 
+
+You can find them on my Tindie store (limited availability):
+
+https://www.tindie.com/products/tobychui/dezkvm-go-kvm-over-usb-device/
+
 ## License
 
 Software: GPLv3
