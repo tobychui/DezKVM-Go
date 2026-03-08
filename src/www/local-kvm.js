@@ -1052,4 +1052,130 @@ navigator.mediaDevices.addEventListener('devicechange', () => {
    startStream();
 });
 
+/*
+    Test-Pattern (Color-Bar) Detection
+    The MS2109 capture card generates a 7-stripe colour-bar test signal when
+    no HDMI source is connected.  We sample the centre of each stripe and
+    compare against the known colours.  When the pattern is detected the
+    global flag `videoCaptureOngoing` is set to false and a black overlay
+    with an informational message is shown.
+*/
+let videoCaptureOngoing = true;
+
+(function () {
+    const EXPECTED_COLORS = [
+        { r: 255, g: 255, b: 255 }, // #ffffff
+        { r: 255, g: 255, b: 0   }, // #ffff00
+        { r: 0,   g: 234, b: 255 }, // #00eaff
+        { r: 0,   g: 234, b: 0   }, // #00ea00
+        { r: 255, g: 32,  b: 255 }, // #ff20ff
+        { r: 255, g: 32,  b: 0   }, // #ff2000
+        { r: 0,   g: 24,  b: 255 }, // #0018ff
+    ];
+    const COLOR_TOLERANCE = 45;      // per-channel tolerance
+    const CHECK_INTERVAL_MS = 1000;  // check every 1 second
+
+    const video = document.getElementById('video');
+    const overlay = document.getElementById('noSignalOverlay');
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    function colorMatch(actual, expected) {
+        return Math.abs(actual.r - expected.r) <= COLOR_TOLERANCE &&
+               Math.abs(actual.g - expected.g) <= COLOR_TOLERANCE &&
+               Math.abs(actual.b - expected.b) <= COLOR_TOLERANCE;
+    }
+
+    // Find the actual video content boundaries on a given row by scanning
+    // inward from each edge until a non-black pixel is found.
+    function findContentBounds(rowData, width) {
+        const BLACK_THRESHOLD = 30; // pixels darker than this are "black"
+        let left = 0;
+        let right = width - 1;
+
+        // Scan from the left
+        for (let x = 0; x < width; x++) {
+            const idx = x * 4;
+            if (rowData[idx] > BLACK_THRESHOLD ||
+                rowData[idx + 1] > BLACK_THRESHOLD ||
+                rowData[idx + 2] > BLACK_THRESHOLD) {
+                left = x;
+                break;
+            }
+        }
+
+        // Scan from the right
+        for (let x = width - 1; x >= left; x--) {
+            const idx = x * 4;
+            if (rowData[idx] > BLACK_THRESHOLD ||
+                rowData[idx + 1] > BLACK_THRESHOLD ||
+                rowData[idx + 2] > BLACK_THRESHOLD) {
+                right = x;
+                break;
+            }
+        }
+
+        return { left, right };
+    }
+
+    function isTestPattern() {
+        if (!video.srcObject || video.videoWidth === 0 || video.videoHeight === 0) {
+            return false; // no stream at all – don't treat as test pattern
+        }
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const stripeCount = EXPECTED_COLORS.length;
+
+        // Sample multiple rows to be more robust
+        const sampleRows = [
+            Math.floor(canvas.height * 0.25),
+            Math.floor(canvas.height * 0.5),
+            Math.floor(canvas.height * 0.75),
+        ];
+
+        for (const row of sampleRows) {
+            // Get the full row of pixels so we can find the actual content area
+            const rowData = ctx.getImageData(0, row, canvas.width, 1).data;
+            const bounds = findContentBounds(rowData, canvas.width);
+            const contentWidth = bounds.right - bounds.left + 1;
+
+            // Content must be at least 25% of frame width to be meaningful
+            if (contentWidth < canvas.width * 0.25) return false;
+
+            const stripeWidth = contentWidth / stripeCount;
+            let allMatch = true;
+            for (let i = 0; i < stripeCount; i++) {
+                const sampleX = Math.floor(bounds.left + stripeWidth * i + stripeWidth / 2);
+                const idx = sampleX * 4;
+                const actual = { r: rowData[idx], g: rowData[idx + 1], b: rowData[idx + 2] };
+
+                if (!colorMatch(actual, EXPECTED_COLORS[i])) {
+                    allMatch = false;
+                    break;
+                }
+            }
+            if (!allMatch) return false; // one row failed – not the test pattern
+        }
+
+        return true; // all sampled rows matched
+    }
+
+    function updateOverlay(showOverlay) {
+        if (showOverlay) {
+            overlay.style.display = 'flex';
+        } else {
+            overlay.style.display = 'none';
+        }
+    }
+
+    setInterval(() => {
+        const testPatternDetected = isTestPattern();
+        videoCaptureOngoing = !testPatternDetected;
+        updateOverlay(testPatternDetected);
+    }, CHECK_INTERVAL_MS);
+})();
+
 

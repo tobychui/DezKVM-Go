@@ -376,3 +376,26 @@ body {
     color: #555;
     font-size: 0.95em;
 }
+
+/* No-signal overlay */
+#noSignalOverlay {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100vw;
+    height: 50px;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 500;
+    justify-content: center;
+    align-items: center;
+}
+
+#noSignalOverlay span {
+    color: #f7f7f7;
+    font-size: 1em;
+    text-align: center;
+    padding: 2em;
+    max-width: 600px;
+    line-height: 1.6;
+}
