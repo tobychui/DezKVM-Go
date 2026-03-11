@@ -15,12 +15,14 @@ If you are looking for an IP-KVM solution, take a look at the [DezKVM](https://g
 - Fully featured software that do not require installing any apps
   - Live video and audio feeds
   - Paste box (host to remote computer through automatic virtual keyboard HID events)
+  - Copy via OCR (remote to host computer through OCR image to text conversion) 
   - On-screen keyboard
   - Commonly used Hot-key and macros
   - Take Screenshots
 - Advanced Settings
   - Invert mouse scroll wheel direction (for Windows / MacOS cross control)
   - Absolute / Relative mode for mouse
+  - Mouse Jiggler
   
 ## Usage
 
