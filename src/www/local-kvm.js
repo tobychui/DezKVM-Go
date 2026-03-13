@@ -203,9 +203,9 @@ class HIDController {
             throw new Error('Serial port not open');
         }
         const packet = [
-            0x57, 0xAB, 0x00, 0x0F, 0x00 // checksum placeholder
+            0x57, 0xAB, 0x00, 0x0F, 0x00, 0x00 // checksum placeholder
         ];
-        packet[4] = this.calcChecksum(packet.slice(0, 4));
+        packet[5] = this.calcChecksum(packet.slice(0, 5));
         await this.sendPacketAndWait(packet, 0x0F);
     }
 
