@@ -20,6 +20,12 @@ let serialReader = null;
 let serialWriter = null;
 let serialReadBuffer = [];
 let selectingSerialPort = false;
+
+// Get selected baudrate from radio buttons
+function getSelectedBaudrate() {
+    const baudrateRadio = document.querySelector('input[name="baudrate"]:checked');
+    return baudrateRadio ? parseInt(baudrateRadio.value) : 115200;
+}
 // Need a user triggered event to request serial port
 document.getElementById('touchscreen').addEventListener('click', function(event) {
     //console.log('Video clicked at', event.clientX, event.clientY);
@@ -50,7 +56,8 @@ async function requestSerialPort() {
             await disconnectSerialPort();
         }
         serialPort = await navigator.serial.requestPort();
-        await serialPort.open({ baudRate: 115200 });
+        const baudRate = getSelectedBaudrate();
+        await serialPort.open({ baudRate: baudRate });
         serialReader = serialPort.readable.getReader();
         serialWriter = serialPort.writable.getWriter();
         updateSelectedPortDisplay(serialPort);
@@ -690,6 +697,47 @@ window.addEventListener('keyup', async (e) => {
         // Ignore unsupported keys
     }
 });
+
+// Baudrate change handler - reconnect with new baudrate
+function setupBaudrateChangeHandler() {
+    const baudrateRadios = document.querySelectorAll('input[name="baudrate"]');
+    baudrateRadios.forEach(radio => {
+        radio.addEventListener('change', async () => {
+            if (serialPort) {
+                const newBaudrate = parseInt(radio.value);
+                try {
+                    $('body').toast({
+                        message: `<i class="blue sync icon"></i> Reconnecting with baudrate ${newBaudrate}...`,
+                    });
+                    
+                    // Disconnect and reconnect with new baudrate
+                    await disconnectSerialPort();
+                    
+                    // Small delay to ensure clean disconnect
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    // Reconnect with new baudrate
+                    await requestSerialPort();
+                    
+                    $('body').toast({
+                        message: `<i class="green check circle icon"></i> Reconnected with baudrate ${newBaudrate}`,
+                    });
+                } catch (e) {
+                    console.error('Failed to reconnect with new baudrate:', e);
+                    $('body').toast({
+                        message: '<i class="exclamation icon"></i> Failed to reconnect. Please try refreshing the page.',
+                        class: 'error'
+                    });
+                }
+            }
+        });
+    });
+}
+
+// Initialize baudrate change handler when page loads
+setTimeout(() => {
+    setupBaudrateChangeHandler();
+}, 500);
 
 document.getElementById('resetHIDMenuItem').addEventListener('click', async () => {
     try {

@@ -68,7 +68,7 @@
         <div class="ui mini dropdown basic button" style="margin-left: auto;">
             <i class="blue cog icon"></i> Advanced Settings
             <i class="dropdown icon"></i>
-            <div class="menu">
+            <div class="secondary menu">
                 <div class="item">
                     <div class="ui checkbox">
                         <input type="checkbox" name="invertScroll" id="invertScroll">
@@ -94,6 +94,25 @@
                     </div>
                 </div>
                 <div class="divider"></div>
+                <div class="item">
+                    <label>HID Baudrate</label>
+                    <div class="ui form" style="margin-top: 8px;">
+                        <div class="grouped fields" style="margin: 0;">
+                            <div class="field">
+                                <div class="ui radio checkbox">
+                                    <input type="radio" name="baudrate" value="115200" id="baudrate115200" checked>
+                                    <label for="baudrate115200">115200</label>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <div class="ui radio checkbox">
+                                    <input type="radio" name="baudrate" value="9600" id="baudrate9600">
+                                    <label for="baudrate9600">9600</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="item" id="resetHIDMenuItem">
                     <i class="redo icon"></i> Reset HID
                 </div>
