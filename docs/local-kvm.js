@@ -566,27 +566,19 @@ videoOverlayElement.addEventListener('mouseup', async (e) => {
     }
 });
 
-// Relative mouse mode: toggle via checkbox
-let relativeMouseCheckbox = document.getElementById('relativeMouse');
-if (relativeMouseCheckbox) {
-    relativeMouseCheckbox.addEventListener('change', function () {
-        controller.Config.AbsoluteMode = !this.checked;
-        if (this.checked) {
-            // Enter relative mode – request pointer lock so cursor stays captured
-            videoOverlayElement.requestPointerLock();
-            $('body').toast({
-                message: '<i class="arrows alternate icon"></i> Relative mouse mode enabled'
-            });
-        } else {
-            // Exit relative mode – release pointer lock
-            if (document.pointerLockElement === videoOverlayElement) {
-                document.exitPointerLock();
-            }
-            $('body').toast({
-                message: '<i class="mouse pointer icon"></i> Absolute mouse mode enabled'
-            });
-        }
-    });
+// Relative mouse mode flag (toggled from settings.html)
+let relativeMouseEnabled = false;
+let relativeMouseSensitivity = 1.0;
+
+// CTRL ↔ CMD swap flag
+let ctrlCmdSwapEnabled = false;
+
+// Swap Ctrl (17) and Meta/CMD (91) keycodes when swap is enabled
+function swapCtrlCmd(keyCode) {
+    if (!ctrlCmdSwapEnabled) return keyCode;
+    if (keyCode === 17) return 91;
+    if (keyCode === 91) return 17;
+    return keyCode;
 }
 
 // Re-request pointer lock on click when in relative mode
@@ -615,8 +607,8 @@ videoOverlayElement.addEventListener('mousemove', async (e) => {
         await controller.MouseMoveAbsolute(absX & 0xFF, (absX >> 8) & 0xFF, absY & 0xFF, (absY >> 8) & 0xFF);
     } else {
         // Relative positioning – use movementX/Y for pointer-locked delta
-        let dx = Math.round(e.movementX);
-        let dy = Math.round(e.movementY);
+        let dx = Math.round(e.movementX * relativeMouseSensitivity);
+        let dy = Math.round(e.movementY * relativeMouseSensitivity);
 
         // Clamp to signed-byte range (-127 to 127, skip 0x80)
         dx = Math.max(-127, Math.min(127, dx));
@@ -636,15 +628,15 @@ videoOverlayElement.addEventListener('contextmenu', (e) => {
 });
 
 // Mouse wheel (scroll)
-let invertScrollCheckboxEle = document.getElementById('invertScroll');
+let invertScrollEnabled = false; // toggled from settings.html
 let scrollSensitivity = 2; // Default scroll sensitivity
 videoOverlayElement.addEventListener('wheel', async (e) => {
     e.preventDefault();
     let tilt = e.deltaY > 0 ? scrollSensitivity : -scrollSensitivity;
     
     // Check if scroll inversion is enabled
-    if (invertScrollCheckboxEle && invertScrollCheckboxEle.checked) {
-        tilt = -tilt;  // Invert the scroll direction
+    if (invertScrollEnabled) {
+        tilt = -tilt;
     }
     
     await controller.MouseScroll(tilt);
@@ -652,43 +644,36 @@ videoOverlayElement.addEventListener('wheel', async (e) => {
 
 // Keyboard events for HID emulation
 window.addEventListener('keydown', async (e) => {
-    // Check if "Ask on paste" is enabled and user pressed Ctrl+V
-    const askOnPasteCheckbox = document.getElementById('askOnPaste');
-    if (askOnPasteCheckbox && askOnPasteCheckbox.checked) {
-        // Allow Ctrl+V to be handled by paste-box.js
-        if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-            return; // Don't prevent default, let paste event fire
-        }
+    // Allow Ctrl+V to be handled by paste-box.js
+    if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        return; // Don't prevent default, let paste event fire
     }
     
     // Ignore repeated events
     //if (e.repeat) return;
     try {
+        e.preventDefault();
         // Modifier keys
         if (e.key === 'Control' || e.key === 'Shift' || e.key === 'Alt' || e.key === 'Meta') {
-            await controller.SetModifierKey(e.keyCode, e.location === KeyboardEvent.DOM_KEY_LOCATION_RIGHT);
+            await controller.SetModifierKey(swapCtrlCmd(e.keyCode), e.location === KeyboardEvent.DOM_KEY_LOCATION_RIGHT);
         } else {
             await controller.SendKeyboardPress(e.keyCode);
         }
-        e.preventDefault();
+       
     } catch (err) {
         // Ignore unsupported keys
     }
 });
 
 window.addEventListener('keyup', async (e) => {
-    // Check if "Ask on paste" is enabled and user released Ctrl+V
-    const askOnPasteCheckbox = document.getElementById('askOnPaste');
-    if (askOnPasteCheckbox && askOnPasteCheckbox.checked) {
-        // Allow Ctrl+V to be handled by paste-box.js
-        if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-            return; // Don't prevent default
-        }
+    // Allow Ctrl+V to be handled by paste-box.js
+    if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        return; // Don't prevent default
     }
     
     try {
         if (e.key === 'Control' || e.key === 'Shift' || e.key === 'Alt' || e.key === 'Meta') {
-            await controller.UnsetModifierKey(e.keyCode, e.location === KeyboardEvent.DOM_KEY_LOCATION_RIGHT);
+            await controller.UnsetModifierKey(swapCtrlCmd(e.keyCode), e.location === KeyboardEvent.DOM_KEY_LOCATION_RIGHT);
         } else {
             await controller.SendKeyboardRelease(e.keyCode);
         }
@@ -739,7 +724,8 @@ setTimeout(() => {
     setupBaudrateChangeHandler();
 }, 500);
 
-document.getElementById('resetHIDMenuItem').addEventListener('click', async () => {
+// Reset HID - called from settings.html
+async function resetRemoteHID() {
     try {
         await controller.softReset();
         $('body').toast({
@@ -747,26 +733,24 @@ document.getElementById('resetHIDMenuItem').addEventListener('click', async () =
         });
         const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
         await delay(50);
-        // Simulate Shift press and release
-        await controller.SetModifierKey(16, false); // Left Shift
+        await controller.SetModifierKey(16, false);
         await delay(50);
         await controller.UnsetModifierKey(16, false);
         await delay(100);
-
-        // Simulate Ctrl press and release
-        await controller.SetModifierKey(17, false); // Left Ctrl
+        await controller.SetModifierKey(17, false);
         await delay(50);
         await controller.UnsetModifierKey(17, false);
         await delay(100);
-
-        // Simulate Alt press and release
-        await controller.SetModifierKey(18, false); // Left Alt
+        await controller.SetModifierKey(18, false);
         await delay(50);
         await controller.UnsetModifierKey(18, false);
     } catch (e) {
-        alert('Failed to reset HID: ' + e.message);
+        $('body').toast({
+            message: '<i class="red exclamation icon"></i> Failed to reset HID: ' + e.message,
+            class: 'error'
+        });
     }
-});
+}
 
 function sendKeyPress(keycode, needsShift = false) {
     if (!controller) return;
@@ -806,8 +790,6 @@ function cancelPasteText() {
     let idleTimer = null;
     let jiggleTimer = null;
     let jiggleDirection = 1;          // 1 = right, -1 = left
-
-    const mouseJiggCheckbox = document.getElementById('mouseJigg');
 
     // ---- helpers ----
 
@@ -854,25 +836,16 @@ function cancelPasteText() {
         }
     }
 
-    // ---- checkbox toggle ----
-
-    if (mouseJiggCheckbox) {
-        mouseJiggCheckbox.addEventListener('change', function () {
-            jiggleEnabled = this.checked;
-            if (jiggleEnabled) {
-                resetIdleTimer();
-                $('body').toast({
-                    message: '<i class="mouse pointer icon"></i> Mouse jiggler enabled (activates after 30 s idle)'
-                });
-            } else {
-                stopJiggle();
-                if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
-                $('body').toast({
-                    message: '<i class="mouse pointer icon"></i> Mouse jiggler disabled'
-                });
-            }
-        });
-    }
+    // ---- toggle (called from settings.html) ----
+    window.setMouseJigglerEnabled = function(enabled) {
+        jiggleEnabled = enabled;
+        if (jiggleEnabled) {
+            resetIdleTimer();
+        } else {
+            stopJiggle();
+            if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+        }
+    };
 
     // ---- user-activity listeners (reset idle timer) ----
 
@@ -997,11 +970,11 @@ async function startStream() {
                 });
 
                 // Create audio context for processing
-                const context = new AudioContext({ sampleRate: 96000 });
-                const source = context.createMediaStreamSource(audioStream);
+                window.kvmAudioContext = new AudioContext({ sampleRate: 96000 });
+                const source = window.kvmAudioContext.createMediaStreamSource(audioStream);
                 
                 // Add audio worklet processor for channel splitting
-                await context.audioWorklet.addModule('data:application/javascript;charset=utf8,' + encodeURIComponent(`
+                await window.kvmAudioContext.audioWorklet.addModule('data:application/javascript;charset=utf8,' + encodeURIComponent(`
                     class SplitProcessor extends AudioWorkletProcessor {
                         process (inputs, outputs, parameters) {
                             const input = inputs[0][0];
@@ -1029,12 +1002,12 @@ async function startStream() {
                     registerProcessor('split-processor', SplitProcessor)
                 `));
                 
-                const processor = new AudioWorkletNode(context, 'split-processor', {
+                const processor = new AudioWorkletNode(window.kvmAudioContext, 'split-processor', {
                     numberOfInputs: 1,
                     numberOfOutputs: 1,
                 });
                 source.connect(processor);
-                processor.connect(context.destination);
+                processor.connect(window.kvmAudioContext.destination);
 
                 console.log('Audio stream started successfully');
             } catch (e) {
@@ -1227,3 +1200,212 @@ let videoCaptureOngoing = true;
 })();
 
 
+/*
+    Settings Overlay
+*/
+
+// Show / hide the settings overlay
+function toggleSettingsOverlay() {
+    const overlay = document.getElementById('settings-overlay');
+    if (overlay) {
+        overlay.classList.toggle('visible');
+        // Update capture properties when opening
+        if (overlay.classList.contains('visible')) {
+            updateCapturePropertiesTable();
+        }
+    }
+}
+
+function closeSettingsOverlay() {
+    const overlay = document.getElementById('settings-overlay');
+    if (overlay) {
+        overlay.classList.remove('visible');
+    }
+}
+
+// Close overlay when clicking outside the panel
+document.addEventListener('click', function(e) {
+    const overlay = document.getElementById('settings-overlay');
+    if (overlay && overlay.classList.contains('visible')) {
+        // Only close if the click is directly on the overlay background (not the panel)
+        if (e.target === overlay) {
+            closeSettingsOverlay();
+        }
+    }
+});
+
+// Toggle fullscreen (used by settings.html)
+function toggleFullScreen() {
+    if (
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement
+    ) {
+        if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+        else if (document.msExitFullscreen) document.msExitFullscreen();
+        document.querySelector('#fullscreenBtn i').className = 'expand icon';
+    } else {
+        if (document.body.requestFullscreen) document.body.requestFullscreen();
+        else if (document.body.webkitRequestFullscreen) document.body.webkitRequestFullscreen();
+        else if (document.body.mozRequestFullScreen) document.body.mozRequestFullScreen();
+        else if (document.body.msRequestFullscreen) document.body.msRequestFullscreen();
+        document.querySelector('#fullscreenBtn i').className = 'compress icon';
+    }
+}
+
+// Update capture properties table in settings
+function updateCapturePropertiesTable() {
+    const tbody = document.getElementById('capturePropsBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const video = document.getElementById('video');
+    const stream = window.currentStream;
+
+    const addRow = (label, value) => {
+        const tr = document.createElement('tr');
+        const td1 = document.createElement('td');
+        td1.textContent = label;
+        td1.style.fontWeight = '600';
+        const td2 = document.createElement('td');
+        td2.textContent = value;
+        tr.appendChild(td1);
+        tr.appendChild(td2);
+        tbody.appendChild(tr);
+    };
+
+    if (!stream || stream.getVideoTracks().length === 0) {
+        addRow('Status', 'No video stream');
+        return;
+    }
+
+    const track = stream.getVideoTracks()[0];
+    const settings = track.getSettings();
+    const capabilities = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
+
+    addRow('Status', track.readyState === 'live' ? 'Active' : track.readyState);
+    addRow('Resolution', (settings.width || '-') + ' × ' + (settings.height || '-'));
+    addRow('Frame Rate', (settings.frameRate ? settings.frameRate + ' fps' : '-'));
+    addRow('Device', track.label || '-');
+    if (settings.deviceId) addRow('Device ID', settings.deviceId.substring(0, 16) + '…');
+    if (settings.groupId) addRow('Group ID', settings.groupId.substring(0, 16) + '…');
+    if (settings.aspectRatio) addRow('Aspect Ratio', settings.aspectRatio.toFixed(4));
+    if (capabilities.width) addRow('Max Resolution', capabilities.width.max + ' × ' + capabilities.height.max);
+    if (capabilities.frameRate) addRow('Max Frame Rate', capabilities.frameRate.max + ' fps');
+}
+
+// Toggle audio enable/disable
+let audioEnabled = true;
+function toggleEnableAudio() {
+    const chk = document.getElementById('chkSettingsEnableAudio');
+    audioEnabled = chk ? chk.checked : true;
+    if (window.kvmAudioContext) {
+        if (audioEnabled) {
+            window.kvmAudioContext.resume();
+            $('body').toast({ message: '<i class="volume up icon"></i> Audio enabled' });
+        } else {
+            window.kvmAudioContext.suspend();
+            $('body').toast({ message: '<i class="volume off icon"></i> Audio disabled' });
+        }
+    }
+}
+
+// Toggle local cursor visibility
+let showLocalCursor = true;
+function toggleShowLocalCursor() {
+    const chk = document.getElementById('chkSettingsShowLocalCursor');
+    showLocalCursor = chk ? chk.checked : true;
+    const ts = document.getElementById('touchscreen');
+    if (ts) {
+        ts.style.cursor = showLocalCursor ? '' : 'none';
+    }
+    $('body').toast({
+        message: showLocalCursor
+            ? '<i class="mouse pointer icon"></i> Local cursor visible'
+            : '<i class="mouse pointer icon"></i> Local cursor hidden'
+    });
+}
+
+// Toggle invert scrollwheel
+function toggleInvertScrollwheel() {
+    const chk = document.getElementById('chkSettingsInvertScrollwheel');
+    invertScrollEnabled = chk ? chk.checked : false;
+    $('body').toast({
+        message: invertScrollEnabled
+            ? '<i class="exchange icon"></i> Scroll direction inverted'
+            : '<i class="exchange icon"></i> Scroll direction normal'
+    });
+}
+
+// Toggle relative mouse mode
+function toggleRelativeMouseMode() {
+    const chk = document.getElementById('chkSettingsRelativeMouseMode');
+    relativeMouseEnabled = chk ? chk.checked : false;
+    controller.Config.AbsoluteMode = !relativeMouseEnabled;
+    if (relativeMouseEnabled) {
+        videoOverlayElement.requestPointerLock();
+        $('body').toast({ message: '<i class="arrows alternate icon"></i> Relative mouse mode enabled' });
+
+        //Also hide the settings overlay to prevent confusion about mouse position when pointer is locked
+        closeSettingsOverlay();
+    } else {
+        if (document.pointerLockElement === videoOverlayElement) {
+            document.exitPointerLock();
+        }
+        $('body').toast({ message: '<i class="mouse pointer icon"></i> Absolute mouse mode enabled' });
+    }
+}
+
+// Toggle CTRL ↔ CMD swap
+function toggleCtrlCmdSwap() {
+    ctrlCmdSwapEnabled = !ctrlCmdSwapEnabled;
+    const btn = document.getElementById('btnCtrlCmdSwap');
+    if (btn) {
+        if (ctrlCmdSwapEnabled) {
+            btn.classList.remove('grey');
+            btn.classList.add('green');
+        } else {
+            btn.classList.remove('green');
+            btn.classList.add('grey');
+        }
+    }
+    $('body').toast({
+        message: ctrlCmdSwapEnabled
+            ? '<i class="exchange icon"></i> CTRL ↔ CMD swap enabled'
+            : '<i class="exchange icon"></i> CTRL ↔ CMD swap disabled'
+    });
+    if (typeof saveSettingsToLocalStorage === 'function') {
+        saveSettingsToLocalStorage();
+    }
+}
+
+// Ask on Paste flag (toggled from settings.html)
+let askOnPasteEnabled = false;
+
+// Toggle ask on paste
+function toggleAskOnPaste() {
+    const chk = document.getElementById('chkSettingsAskOnPaste');
+    askOnPasteEnabled = chk ? chk.checked : false;
+    $('body').toast({
+        message: askOnPasteEnabled
+            ? '<i class="clipboard icon"></i> Ask on paste enabled'
+            : '<i class="clipboard icon"></i> Ask on paste disabled'
+    });
+}
+
+// Toggle mouse jiggler
+function toggleMouseJiggler() {
+    const chk = document.getElementById('chkSettingsMouseJiggler');
+    const enabled = chk ? chk.checked : false;
+    if (typeof window.setMouseJigglerEnabled === 'function') {
+        window.setMouseJigglerEnabled(enabled);
+    }
+    $('body').toast({
+        message: enabled
+            ? '<i class="mouse pointer icon"></i> Mouse jiggler enabled (activates after 30 s idle)'
+            : '<i class="mouse pointer icon"></i> Mouse jiggler disabled'
+    });
+}
