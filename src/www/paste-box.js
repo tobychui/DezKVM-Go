@@ -208,10 +208,12 @@ $('#showPasteBox').on('click', function(){
 
 // Intercept paste events when "Ask on paste" is enabled
 window.addEventListener('paste', async (e) => {
-    const askOnPasteCheckbox = document.getElementById('askOnPaste');
-    
-    // Only intercept if checkbox is enabled and paste box is not already active
-    if (!askOnPasteCheckbox || !askOnPasteCheckbox.checked || pasteBoxActive) {
+    // Only intercept if askOnPaste is enabled and paste box is not already active
+    if (!askOnPasteEnabled || pasteBoxActive) {
+        if (!askOnPasteEnabled) {
+            //Send Ctrl+V directly to remote without showing paste box or confirmation
+            await sendCtrlVToRemote(false);
+        }
         return;
     }
     
@@ -224,9 +226,8 @@ window.addEventListener('paste', async (e) => {
         const clipboardText = e.clipboardData.getData('text');
         
         if (!clipboardText) {
-            $('body').toast({
-                message: '<i class="yellow exclamation triangle icon"></i> Clipboard is empty',
-            });
+            //Clipboard is empty, send Ctrl+V directly to remote to trigger paste from remote clipboard
+             await sendCtrlVToRemote();
             return;
         }
         
@@ -268,7 +269,7 @@ function showPasteConfirmationModal(clipboardText) {
                     <p><strong>Send Ctrl+V to Remote:</strong> Just sends the keyboard shortcut (remote system will paste from its own clipboard)</p>
                     <p><strong>Send Clipboard Content:</strong> Types out the captured text character by character (${clipboardText.length} characters)</p>
                 </div>
-                <small>Tips: You can disable this confirmation in settings if you prefer to always send the clipboard content directly.</small>
+                <small>Tips: You can disable this confirmation in settings if you prefer to always send Ctrl + V.</small>
             </div>
             <div class="actions">
                 <div class="ui cancel button">
@@ -308,8 +309,8 @@ function showPasteConfirmationModal(clipboardText) {
     });
 }
 
-// Send Ctrl+V keyboard combination to remote
-async function sendCtrlVToRemote() {
+// Send Ctrl+V (or CMD+V if CTRL↔CMD swap is enabled) keyboard combination to remote
+async function sendCtrlVToRemote(showToast=true) {
     if (typeof controller === 'undefined' || !controller) {
         $('body').toast({
             message: '<i class="red times circle icon"></i> HID not connected',
@@ -318,9 +319,13 @@ async function sendCtrlVToRemote() {
         return;
     }
     
+    // Use swapCtrlCmd to respect CTRL↔CMD swap setting
+    const modifierKeyCode = (typeof swapCtrlCmd === 'function') ? swapCtrlCmd(17) : 17;
+    const label = modifierKeyCode === 91 ? 'CMD+V' : 'Ctrl+V';
+    
     try {
-        // Press Ctrl
-        await controller.SetModifierKey(17, false); // Left Ctrl
+        // Press Ctrl (or CMD if swapped)
+        await controller.SetModifierKey(modifierKeyCode, false);
         await new Promise(resolve => setTimeout(resolve, 50));
         
         // Press V
@@ -331,20 +336,20 @@ async function sendCtrlVToRemote() {
         await controller.SendKeyboardRelease(86);
         await new Promise(resolve => setTimeout(resolve, 50));
         
-        // Release Ctrl
-        await controller.UnsetModifierKey(17, false);
+        // Release Ctrl (or CMD if swapped)
+        await controller.UnsetModifierKey(modifierKeyCode, false);
         
-        $('body').toast({
-            message: '<i class="green check circle icon"></i> Ctrl+V sent to remote',
-            class: 'success'
-        });
-        
+        if (showToast) {
+            $('body').toast({
+                message: `<i class="green check circle icon"></i> ${label} sent to remote`,
+            });
+        }
+            
         closePasteBox();
     } catch (err) {
-        console.error('Error sending Ctrl+V:', err);
+        console.error(`Error sending ${label}:`, err);
         $('body').toast({
-            message: '<i class="red exclamation icon"></i> Failed to send Ctrl+V',
-            class: 'error'
+            message: `<i class="red exclamation icon"></i> Failed to send ${label}`,
         });
     }
 }
