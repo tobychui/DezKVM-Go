@@ -102,8 +102,3 @@ Software: GPLv3
 
 Hardware: CC BY-NC-ND
 
-## Sponsors
-
-This project is a collaboration with NextPCB, thanks for sponsoring this project!
-
-![](img/NextPCB.png)
