@@ -20,7 +20,7 @@
     <!-- Browser Compatibility Warning -->
     <div id="browserWarning">
         <div class="warning-content">
-            <div class="warning-icon">⚠️</div>
+            <img class="ui small image" src="img/font_logo.svg" alt="Browser Warning">
             <h2>Unsupported Browser Detected</h2>
             <p>
                 This application requires <strong>Chrome</strong>, <strong>Edge</strong>, or other <strong>Chromium-based browsers</strong> to function properly.
@@ -37,7 +37,7 @@
             <p style="font-size: 0.9em; color: #666;">
                 Firefox and Safari are <strong>not supported</strong> at this time.
             </p>
-            <button id="proceedAnyway" class="ui orange large button">
+            <button id="proceedAnyway" class="ui yellow large button">
                 <i class="warning icon"></i> Proceed Anyway
             </button>
         </div>
@@ -96,6 +96,28 @@
 
     <!-- Settings Overlay -->
     <div id="settings-overlay"></div>
+
+    <!-- KVM Connect Prompt -->
+    <div id="kvmConnectPrompt">
+        <div class="kvm-prompt-panel">
+            <div class="prompt-icon"><i class="large usb icon"></i></div>
+            <h2>Connect Your KVM Device</h2>
+            <p>Make sure the DezKVM-Go is plugged into your computer before continuing.</p>
+            <div class="prompt-steps">
+                <div class="step-item"><i class="usb icon"></i> Plug the DezKVM-Go into a USB port on your computer</div>
+                <div class="step-item"><i class="tv icon"></i> Connect the HDMI & USB-C cable to the target machine</div>
+                <div class="step-item"><i class="hand pointer icon"></i> Click the button below to grant camera &amp; audio access</div>
+            </div>
+            <div class="prompt-actions">
+                <button id="kvmConnectBtn" class="ui basic large button">
+                    <i class="blue video icon"></i> Start Capture
+                </button>
+                <label class="do-not-show">
+                    <input type="checkbox" id="chkSkipConnectPrompt"> Don't show this again
+                </label>
+            </div>
+        </div>
+    </div>
     
     <script src="local-kvm.js"></script>
     <script>
@@ -106,13 +128,17 @@
             
             if (!isChromiumBased) {
                 // Show warning for unsupported browsers
-                document.getElementById('browserWarning').style.display = 'flex';
+                const warning = document.getElementById('browserWarning');
+                warning.style.display = 'flex';
+                requestAnimationFrame(() => warning.classList.add('visible'));
             }
         }
 
         // Proceed anyway button handler
         document.getElementById('proceedAnyway').addEventListener('click', () => {
-            document.getElementById('browserWarning').style.display = 'none';
+            const warning = document.getElementById('browserWarning');
+            warning.classList.remove('visible');
+            setTimeout(() => { warning.style.display = 'none'; }, 260);
         });
 
         // Check compatibility on page load

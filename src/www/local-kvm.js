@@ -68,6 +68,17 @@ async function requestSerialPort() {
 
         // Start reading loop for incoming data
         readSerialLoop();
+
+        // Send a softReset command to the CH9329 to ensure it's in a known state
+        setTimeout(async () => {
+            $.toast({
+                message: 'Initializing remote HID device...',
+                showProgress: 'bottom',
+                classProgress: 'green',
+                displayTime: 800,
+            })
+            await controller.softReset();
+        }, 100);
     } catch (e) {
         updateSelectedPortDisplay(null);
         if (e.name !== 'NotFoundError') {
@@ -642,8 +653,17 @@ videoOverlayElement.addEventListener('wheel', async (e) => {
     await controller.MouseScroll(tilt);
 });
 
+// Check if the event target is a text input element
+function isTypingInInput(e) {
+    const tag = e.target.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable;
+}
+
 // Keyboard events for HID emulation
 window.addEventListener('keydown', async (e) => {
+    // Skip HID forwarding when typing in input fields
+    if (isTypingInInput(e)) return;
+
     // Allow Ctrl+V to be handled by paste-box.js
     if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
         return; // Don't prevent default, let paste event fire
@@ -666,6 +686,9 @@ window.addEventListener('keydown', async (e) => {
 });
 
 window.addEventListener('keyup', async (e) => {
+    // Skip HID forwarding when typing in input fields
+    if (isTypingInInput(e)) return;
+
     // Allow Ctrl+V to be handled by paste-box.js
     if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
         return; // Don't prevent default
@@ -1066,8 +1089,48 @@ document.getElementById('fullscreenBtn').addEventListener('click', () => {
     }
 });
 
-// Start stream on page load
-startStream();
+// KVM Connect Prompt logic
+const SKIP_CONNECT_PROMPT_KEY = 'dezkvm_skip_connect_prompt';
+
+function showKvmConnectPrompt() {
+    const prompt = document.getElementById('kvmConnectPrompt');
+    if (!prompt) {
+        // Fallback if element doesn't exist
+        startStream();
+        return;
+    }
+    prompt.style.display = 'flex';
+    requestAnimationFrame(() => prompt.classList.add('visible'));
+}
+
+function hideKvmConnectPrompt() {
+    const prompt = document.getElementById('kvmConnectPrompt');
+    if (!prompt) return;
+    prompt.classList.remove('visible');
+    setTimeout(() => { prompt.style.display = 'none'; }, 260);
+}
+
+// Handle "Start Capture" button click
+document.getElementById('kvmConnectBtn').addEventListener('click', () => {
+    // Save "do not show" preference
+    const skipChk = document.getElementById('chkSkipConnectPrompt');
+    if (skipChk && skipChk.checked) {
+        try { localStorage.setItem(SKIP_CONNECT_PROMPT_KEY, 'true'); } catch (e) {}
+    }
+    hideKvmConnectPrompt();
+    startStream();
+});
+
+// Start stream: either show prompt or auto-start
+(function initCapture() {
+    let skipPrompt = false;
+    try { skipPrompt = localStorage.getItem(SKIP_CONNECT_PROMPT_KEY) === 'true'; } catch (e) {}
+    if (skipPrompt) {
+        startStream();
+    } else {
+        showKvmConnectPrompt();
+    }
+})();
 
 navigator.mediaDevices.addEventListener('devicechange', () => {
    startStream();
