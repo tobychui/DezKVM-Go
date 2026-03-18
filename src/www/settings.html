@@ -202,31 +202,31 @@
     <div class="settings-layout">
         <!-- Left: category menu -->
         <div class="settings-menu-col">
-            <div id="setting-menu-tabs" class="ui secondary vertical menu settings-category-menu">
-                <a class="item active ip-kvm-feature" data-tab="ipkvm">
+            <div id="setting-menu-tabs" class="ui secondary tabular vertical menu settings-category-menu">
+                <div  class="item ip-kvm-feature" data-tab="ipkvm">
                     <i class="tv icon"></i> IP-KVM
-                </a>
-                <a class="item active local-kvm-only" data-tab="display">
+                </div>
+                <div  class="item active local-kvm-only" data-tab="display">
                     <i class="tv icon"></i> Display
-                </a>
-                <a class="item local-kvm-only" data-tab="audio">
+                </div>
+                <div class="item local-kvm-only" data-tab="audio">
                     <i class="volume up icon"></i> Audio
-                </a>
-                <a class="item" data-tab="keyboard-mouse">
+                </div>
+                <div class="item" data-tab="keyboard-mouse">
                     <i class="keyboard icon"></i> Keyboard &amp; Mouse
-                </a>
-                <a class="item" data-tab="advanced">
+                </div>
+                <div class="item" data-tab="advanced">
                     <i class="cogs icon"></i> Advanced
-                </a>
-                <a class="item" data-tab="about">
+                </div>
+                <div class="item" data-tab="about">
                     <i class="info circle icon"></i> About
-                </a>
+                </div >
             </div>
         </div>
         <!-- Right: settings content -->
         <div class="settings-content-col">
             <!-- IP-KVM -->
-            <div class="settings-tab-content active" data-tab="ipkvm">
+            <div class="ui tab settings-tab-content ip-kvm-features" data-tab="ipkvm">
                 <h3 class="ui header">
                     <i class="tv icon"></i>
                     <div class="content">IP-KVM Mode</div>
@@ -282,7 +282,7 @@
                 </div>
             </div>
             <!-- Display -->
-            <div class="settings-tab-content active local-kvm-only" data-tab="display">
+            <div class="ui tab settings-tab-content active local-kvm-only" data-tab="display">
                 <h3 class="ui header">
                     <i class="tv icon"></i>
                     <div class="content">Display</div>
@@ -309,7 +309,7 @@
             </div>
 
             <!-- Audio -->
-            <div class="settings-tab-content local-kvm-only" data-tab="audio">
+            <div class="ui tab settings-tab-content local-kvm-only" data-tab="audio">
                 <h3 class="ui header">
                     <i class="volume up icon"></i>
                     <div class="content">Audio</div>
@@ -327,7 +327,7 @@
             </div>
 
             <!-- Keyboard & Mouse -->
-            <div class="settings-tab-content" data-tab="keyboard-mouse">
+            <div class="ui tab settings-tab-content" data-tab="keyboard-mouse">
                 <h3 class="ui header">
                     <i class="keyboard icon"></i>
                     <div class="content">Keyboard &amp; Mouse</div>
@@ -389,7 +389,7 @@
             </div>
 
             <!-- Advanced -->
-            <div class="settings-tab-content" data-tab="advanced">
+            <div class="ui tab settings-tab-content" data-tab="advanced">
                 <h3 class="ui header">
                     <i class="cogs icon"></i>
                     <div class="content">Advanced</div>
@@ -434,7 +434,7 @@
             </div>  
 
             <!-- About -->
-            <div class="settings-tab-content" data-tab="about">
+            <div class="ui tab settings-tab-content" data-tab="about">
                 <h3 class="ui header">
                     <i class="info circle icon"></i>
                     <div class="content">About</div>
@@ -742,13 +742,13 @@ if(typeof $ !== 'undefined' && $.fn.checkbox){
     $('#saveSettingsCheckbox').checkbox();
 }
 
-/* Tab switching */
-$(".settings-category-menu .item").on("click", function(){
-    $(".settings-category-menu .item").removeClass("active");
-    $(this).addClass("active");
-    var tab = $(this).data("tab");
-    $(".settings-tab-content").removeClass("active");
-    $(".settings-tab-content[data-tab='" + tab + "']").addClass("active");
+// Custom tab switching (menu and content are in separate containers)
+$('#setting-menu-tabs .item').on('click', function() {
+    var tab = $(this).data('tab');
+    $('#setting-menu-tabs .item').removeClass('active');
+    $('.settings-tab-content').hide().removeClass('active');
+    $(this).addClass('active');
+    $('.settings-tab-content[data-tab="' + tab + '"]').show().addClass('active');
 });
 
 /* Populate capture properties table on load */

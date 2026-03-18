@@ -59,7 +59,13 @@ function support_ip_kvm_mode() {
         success: function(data) {
             if (data) {
                 $(".ip-kvm-features").show();
-                $(".local-kvm-only").hide();
+                $(".ip-kvm-feature").show();
+                $(".local-kvm-only").hide().removeClass("active");
+                // Activate IP-KVM tab
+                $("#setting-menu-tabs .item").removeClass("active");
+                $(".settings-tab-content").removeClass("active");
+                $(".ip-kvm-feature").addClass("active");
+                $(".settings-tab-content[data-tab='ipkvm']").addClass("active");
                 document.title += " [IP-KVM Mode]";
                 ipKvmSupported = true;
 
@@ -86,14 +92,27 @@ function support_ip_kvm_mode() {
                 $(".settings-tab-content[data-tab='display']").hide();
             } else {
                 console.warn("IP-KVM mode not supported on this system");
-                $(".ip-kvm-features").hide();
+                $(".ip-kvm-features").hide().removeClass("active");
+                $(".ip-kvm-feature").hide().removeClass("active");
                 $(".local-kvm-only").show();
+                // Ensure a visible tab is active
+                if ($("#setting-menu-tabs .item.active:visible").length === 0) {
+                    $("#setting-menu-tabs .item:visible").first().addClass("active");
+                    var firstTab = $("#setting-menu-tabs .item:visible").first().data("tab");
+                    $(".settings-tab-content[data-tab='" + firstTab + "']").addClass("active");
+                }
                 $("#ipkvm_mjpeg").hide();
             }
         },
         error: function() {
-            $(".ip-kvm-features").hide();
+            $(".ip-kvm-features").hide().removeClass("active");
+            $(".ip-kvm-feature").hide().removeClass("active");
             $(".local-kvm-only").show();
+            if ($("#setting-menu-tabs .item.active:visible").length === 0) {
+                $("#setting-menu-tabs .item:visible").first().addClass("active");
+                var firstTab = $("#setting-menu-tabs .item:visible").first().data("tab");
+                $(".settings-tab-content[data-tab='" + firstTab + "']").addClass("active");
+            }
             $("#ipkvm_mjpeg").hide();
         }
     })
