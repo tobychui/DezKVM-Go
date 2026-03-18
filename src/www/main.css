@@ -22,6 +22,22 @@ body {
     z-index: 0;
 }
 
+#ipkvm_mjpeg{
+    max-width: 100vw;
+    max-height: 100vh;
+    position: absolute;
+    left: 0;
+    right: 0;
+    width: auto;
+    height: auto;
+    display: none;
+    margin: auto;
+    object-fit: contain;
+    z-index: 0;
+    user-select: none;
+    pointer-events: none;
+}
+
 #menu {
     position: fixed;
     top: 0px;

@@ -18,7 +18,7 @@
     </head>
 <body>
     <!-- Browser Compatibility Warning -->
-    <div id="browserWarning">
+    <div id="browserWarning" class="local-kvm-only">
         <div class="warning-content">
             <img class="ui small image" src="img/font_logo.svg" alt="Browser Warning">
             <h2>Unsupported Browser Detected</h2>
@@ -48,8 +48,8 @@
         </div>
      
         <!-- Serial Ports -->
-        <button id="selectSerialPort" class="ui mini basic green icon button" title="Connect Serial"><i class="keyboard icon"></i></button>
-        <span id="selectedPort" style="margin-left: 5px; font-size: 0.9em;">Not Connected</span>
+        <button id="selectSerialPort" class="ui mini basic green icon button local-kvm-only" title="Connect Serial"><i class="keyboard icon"></i></button>
+        <span id="selectedPort" class="local-kvm-only" style="margin-left: 5px; font-size: 0.9em;">Not Connected</span>
         
         <!-- Paste Box -->
         <button id="showPasteBox" class="ui mini basic icon button" title="Paste to Remote" style="margin-left: 10px;"><i class="paste icon"></i></button>
@@ -75,6 +75,7 @@
         <button id="hideMenuBtn" class="ui mini icon button"><i class="chevron up icon"></i></button>
     </div>
     <video id="video" autoplay playsinline style="width:100%;max-width:100%;"></video>
+    <img id="ipkvm_mjpeg" src="img/ipkvm.png" style="width:100%; max-width: 100%;">
     <div id="touchscreen"></div>
 
     <!-- No Signal Overlay -->
@@ -306,5 +307,6 @@
 
         
     </script>
+    <script src="ip-kvm.js"></script>
 </body>
 </html>

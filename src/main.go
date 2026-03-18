@@ -15,6 +15,7 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"os/exec"
 	"time"
 )
 
@@ -29,6 +30,7 @@ const (
 func main() {
 	dev := flag.Bool("dev", true, "Serve files from www/ directory instead of embedded files")
 	addr := flag.String("addr", ":8443", "HTTPS server address")
+	mode := flag.String("mode", "local", "Server mode: local or ipkvm")
 	flag.Parse()
 
 	// Check and generate certs if needed
@@ -55,6 +57,21 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/", handler)
 
+	if *mode == "ipkvm" {
+		// Run precheck for IP-KVM mode
+		err := run_dependency_precheck()
+		if err != nil {
+			log.Fatalf("Precheck failed: %v", err)
+			log.Fatal("Please ensure all dependencies are installed and available in PATH")
+		}
+
+		// Initialize IP-KVM specific APIs
+		fmt.Println("Running in IPKVM mode, visit https://localhost:8443/ to access the KVM interface")
+		initializeIpKVMApis(mux)
+	} else {
+		fmt.Println("Running in local mode, visit https://localhost:8443/ to access the DezKVM-Go local viewer")
+	}
+
 	server := &http.Server{
 		Addr:    *addr,
 		Handler: mux,
@@ -67,11 +84,7 @@ func main() {
 	log.Fatal(server.ListenAndServeTLS(certFile, keyFile))
 }
 
-func fileExists(filename string) bool {
-	info, err := os.Stat(filename)
-	return err == nil && !info.IsDir()
-}
-
+// generateSelfSignedCert creates a self-signed certificate and saves it to the specified paths
 func generateSelfSignedCert(certPath, keyPath string) error {
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -123,4 +136,24 @@ func generateSelfSignedCert(certPath, keyPath string) error {
 	}
 
 	return nil
+}
+
+// run_dependency_precheck checks if required dependencies are available in the system
+func run_dependency_precheck() error {
+	log.Println("Running precheck...")
+	// Dependencies of USB capture card
+	if _, err := exec.LookPath("v4l2-ctl"); err != nil {
+		return fmt.Errorf("v4l2-ctl not found in PATH")
+	}
+	if _, err := exec.LookPath("arecord"); err != nil {
+		return fmt.Errorf("arecord not found in PATH")
+	}
+	log.Println("v4l2-ctl and arecord found in PATH.")
+	return nil
+}
+
+// fileExists checks if a file exists and is not a directory
+func fileExists(filename string) bool {
+	info, err := os.Stat(filename)
+	return err == nil && !info.IsDir()
 }

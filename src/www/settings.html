@@ -202,11 +202,14 @@
     <div class="settings-layout">
         <!-- Left: category menu -->
         <div class="settings-menu-col">
-            <div class="ui secondary vertical menu settings-category-menu">
-                <a class="item active" data-tab="display">
+            <div id="setting-menu-tabs" class="ui secondary vertical menu settings-category-menu">
+                <a class="item active ip-kvm-feature" data-tab="ipkvm">
+                    <i class="tv icon"></i> IP-KVM
+                </a>
+                <a class="item active local-kvm-only" data-tab="display">
                     <i class="tv icon"></i> Display
                 </a>
-                <a class="item" data-tab="audio">
+                <a class="item local-kvm-only" data-tab="audio">
                     <i class="volume up icon"></i> Audio
                 </a>
                 <a class="item" data-tab="keyboard-mouse">
@@ -222,8 +225,64 @@
         </div>
         <!-- Right: settings content -->
         <div class="settings-content-col">
+            <!-- IP-KVM -->
+            <div class="settings-tab-content active" data-tab="ipkvm">
+                <h3 class="ui header">
+                    <i class="tv icon"></i>
+                    <div class="content">IP-KVM Mode</div>
+                </h3>
+                <div class="ui divider"></div>
+                <div id="ipkvmStatusMessage" class="ui icon message" style="max-width:420px;">
+                    <i class="notched circle loading icon" id="ipkvmStatusIcon"></i>
+                    <div class="content">
+                        <div class="header" id="ipkvmStatusHeader">Checking status…</div>
+                        <p id="ipkvmStatusDetail"></p>
+                    </div>
+                </div>
+                <div class="ui divider"></div>
+                <div class="settings-field">
+                    <label>Video Capture Device</label>
+                    <p class="field-description">Select the HDMI capture card to use for video input.</p>
+                    <select class="ui dropdown" id="ipkvmVideoDeviceSelect" onchange="ipkvmShowVideoProperties()" style="max-width:320px; width:100%;">
+                        <option value="">Loading devices…</option>
+                    </select>
+                    <table class="ui celled compact small table" id="ipkvmVideoPropsTable" style="max-width:420px; margin-top:0.6em; display:none;">
+                        <thead><tr><th>Format</th><th>Resolution</th></tr></thead>
+                        <tbody id="ipkvmVideoPropsBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="settings-field">
+                    <label>HID TTY Device</label>
+                    <p class="field-description">Select the serial device connected to the CH9329 HID chip.</p>
+                    <select class="ui dropdown" id="ipkvmTtyDeviceSelect" onchange="ipkvmShowTtyProperties()" style="max-width:320px; width:100%;">
+                        <option value="">Loading devices…</option>
+                    </select>
+                    <table class="ui celled compact small table" id="ipkvmTtyPropsTable" style="max-width:420px; margin-top:0.6em; display:none;">
+                        <thead><tr><th>Property</th><th>Value</th></tr></thead>
+                        <tbody id="ipkvmTtyPropsBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="settings-field">
+                    <button class="ui basic button" id="ipkvmConnectBtn" onclick="ipkvmConnect()">
+                        <i class="green linkify icon"></i> Connect
+                    </button>
+                    <button class="ui basic button" id="ipkvmDisconnectBtn" onclick="ipkvmDisconnect()" style="display:none;">
+                        <i class="red unlink icon"></i> Disconnect
+                    </button>
+                    <br>
+                    <small>You can keep it connected in the background and return later with a ready-to-use session</small>
+                </div>
+                <div class="ui warning message">
+                    <p>DezKVM-Go is not designed for long-term IP-KVM setups, 
+                        if you encounter any stability issues, please restart the usbkvm application 
+                        or reconnect the DezKVM-Go device manually.
+                    </p>
+                </div>
+            </div>
             <!-- Display -->
-            <div class="settings-tab-content active" data-tab="display">
+            <div class="settings-tab-content active local-kvm-only" data-tab="display">
                 <h3 class="ui header">
                     <i class="tv icon"></i>
                     <div class="content">Display</div>
@@ -250,7 +309,7 @@
             </div>
 
             <!-- Audio -->
-            <div class="settings-tab-content" data-tab="audio">
+            <div class="settings-tab-content local-kvm-only" data-tab="audio">
                 <h3 class="ui header">
                     <i class="volume up icon"></i>
                     <div class="content">Audio</div>

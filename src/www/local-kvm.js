@@ -20,6 +20,9 @@ let serialReader = null;
 let serialWriter = null;
 let serialReadBuffer = [];
 let selectingSerialPort = false;
+let isIPKVMMode = false;
+
+
 
 // Get selected baudrate from radio buttons
 function getSelectedBaudrate() {
@@ -29,6 +32,9 @@ function getSelectedBaudrate() {
 // Need a user triggered event to request serial port
 document.getElementById('touchscreen').addEventListener('click', function(event) {
     //console.log('Video clicked at', event.clientX, event.clientY);
+    if (isIPKVMMode){
+        return;
+    }
     if (!serialPort && !selectingSerialPort) {
         selectingSerialPort = true;
         requestSerialPort();
@@ -150,6 +156,7 @@ document.getElementById('selectSerialPort').addEventListener('click', function()
 /*
     CH9329 HID bytecode converter
 */
+let touchscreenResizeFunction = resizeTouchscreenToVideo;
 function resizeTouchscreenToVideo() {
     const video = document.getElementById('video');
     const touchscreen = document.getElementById('touchscreen');
@@ -192,9 +199,9 @@ function resizeTouchscreenToVideo() {
 }
 
 // Call on load and on resize
-window.addEventListener('resize', resizeTouchscreenToVideo);
-window.addEventListener('DOMContentLoaded', resizeTouchscreenToVideo);
-setTimeout(resizeTouchscreenToVideo, 1000); // Also after 1s to ensure video is loaded
+window.addEventListener('resize', function() { touchscreenResizeFunction(); });
+window.addEventListener('DOMContentLoaded', function() { touchscreenResizeFunction(); });
+setTimeout(function() { touchscreenResizeFunction(); }, 1000); // Also after 1s to ensure video is loaded
 
 class HIDController {
     constructor() {
@@ -1122,15 +1129,28 @@ document.getElementById('kvmConnectBtn').addEventListener('click', () => {
 });
 
 // Start stream: either show prompt or auto-start
-(function initCapture() {
-    let skipPrompt = false;
-    try { skipPrompt = localStorage.getItem(SKIP_CONNECT_PROMPT_KEY) === 'true'; } catch (e) {}
-    if (skipPrompt) {
-        startStream();
-    } else {
-        showKvmConnectPrompt();
+$.ajax({
+    url: "/api/ipkvm/check",
+    method: "GET",
+    success: function(data) {
+        if (data == true){
+            isIPKVMMode = true;
+        }
+    },
+    error:function(){
+        // Start capture local KVM
+        (function initCapture() {
+            let skipPrompt = false;
+            try { skipPrompt = localStorage.getItem(SKIP_CONNECT_PROMPT_KEY) === 'true'; } catch (e) {}
+            if (skipPrompt) {
+                startStream();
+            } else {
+                showKvmConnectPrompt();
+            }
+        })();
     }
-})();
+})
+
 
 navigator.mediaDevices.addEventListener('devicechange', () => {
    startStream();
