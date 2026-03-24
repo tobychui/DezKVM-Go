@@ -20,6 +20,7 @@ let serialReader = null;
 let serialWriter = null;
 let serialReadBuffer = [];
 let selectingSerialPort = false;
+let productId = "Generic"; //Generation of DezKVM GO
 
 // Get selected baudrate from radio buttons
 function getSelectedBaudrate() {
@@ -930,16 +931,17 @@ async function startStream() {
 
         const devices = await window.navigator.mediaDevices.enumerateDevices();
         const supportedVidPidPairs = [
-            { vid: '534d', pid: '2109' }, // MS2109, original DezKVM-Go
-            { vid: '345f', pid: '2109' }, // DezKVM-Go gen2
+            { vid: '534d', pid: '2109' , product: "DezKVM-Go Original"}, // MS2109, original DezKVM-Go
+            { vid: '345f', pid: '2109' , product: "DezKVM-Go Gen2"}, // DezKVM-Go gen2
         ]
         let videoDevice = null;
         let audioDevice = null;
-        for (const { vid, pid } of supportedVidPidPairs) {
+        for (const { vid, pid, product } of supportedVidPidPairs) {
             videoDevice = findDevice(devices, 'videoinput', vid, pid);
             audioDevice = findDevice(devices, 'audioinput', vid, pid);
             if (videoDevice && audioDevice) {
                 console.log(`Found video device with VID:PID ${vid}:${pid}`);
+                productId = product;
                 break;
             }
         }
