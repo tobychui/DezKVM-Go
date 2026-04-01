@@ -20,6 +20,7 @@ let serialReader = null;
 let serialWriter = null;
 let serialReadBuffer = [];
 let selectingSerialPort = false;
+let productId = "Generic"; //Generation of DezKVM GO
 
 // Get selected baudrate from radio buttons
 function getSelectedBaudrate() {
@@ -929,14 +930,31 @@ async function startStream() {
         await requestMediaDevicePermission();
 
         const devices = await window.navigator.mediaDevices.enumerateDevices();
-        const videoDevice = findDevice(devices, 'videoinput', '534d', '2109');
-        const audioDevice = findDevice(devices, 'audioinput', '534d', '2109');
+        const supportedVidPidPairs = [
+            { vid: '534d', pid: '2109' , product: "DezKVM-Go Original"}, // MS2109, original DezKVM-Go
+            { vid: '345f', pid: '2109' , product: "DezKVM-Go Gen2"}, // DezKVM-Go gen2
+        ]
+        let videoDevice = null;
+        let audioDevice = null;
+        for (const { vid, pid, product } of supportedVidPidPairs) {
+            videoDevice = findDevice(devices, 'videoinput', vid, pid);
+            audioDevice = findDevice(devices, 'audioinput', vid, pid);
+            if (videoDevice && audioDevice) {
+                console.log(`Found video device with VID:PID ${vid}:${pid}`);
+                productId = product;
+                break;
+            }
+        }
 
         if (!videoDevice) {
             console.error('MS2109 video device not found');
             $('body').toast({
                 message: '<i class="red exclamation triangle icon"></i> MS2109 video capture device not found. Please connect the device and try again.'
             });
+
+            // Print all connected video devices for debugging
+            console.log('Connected video devices:');
+            devices.filter(d => d.kind === 'videoinput').forEach(d => console.log(`- ${d.label} (id: ${d.deviceId})`));
             return;
         }
 
