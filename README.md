@@ -89,7 +89,18 @@ Here are a few photos on the device itself if you are interested.
 
 ![photo_2025-12-29_20-14-56](img/README/photo_2025-12-29_20-14-56.jpg)
 
+### Generation 2 (MS2109S)
+
+Due to shortage of MS2109, the HDMI capture card market are slowly shifting towards a new design of such capture card that uses MS2109S  (looks identical to the old MS2109 one, so it is hard to tell by just looking at the case of it),
+
+In case you bought a HDMI capture card and realize it didn't fit because it is a MS2109S device, you can unscrew the metal case and use the bare PCB directly. Installation methods are as follows (notes: an additional 3D printed part and 3 x M2 x 5 screws are needed)
+
+![gen2-diff](img/README/gen2-diff.jpg)
+
+
+
 ### Buy a Ready-to-use Device
+
 If you’d rather skip the build, I’ve put together some DezKVM Go devices that are ready to go. 
 
 You can find them on my Tindie store (limited availability):
