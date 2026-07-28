@@ -1230,13 +1230,30 @@ function isLinuxChromium() {
     return /Linux/.test(ua) && /Chrome\//.test(ua) && !/Android/.test(ua);
 }
 
+function isChromeBook() {
+    const ua = navigator.userAgent;
+    return /X11; CrOS /.test(ua);
+}
+
 function findDevice(devices, type, vid, pid) {
     // Spec doesn't define how to find a device with specified VID/PID
     // Chrome appends (vid:pid) to the device label
-    const pattern = new RegExp(`\\(${vid}:${pid}\\)\\s*$`, 'i');
-    const found = devices.find(x => x.kind === type && pattern.test(x.label));
-    if (found) {
-        return found;
+    {
+        const pattern = new RegExp(`\\(${vid}:${pid}\\)\\s*$`, 'i');
+        const found = devices.find(x => x.kind === type && pattern.test(x.label));
+        if (found) {
+            return found;
+        }
+    }
+
+    // ChromeOS doesn't expose the VID:PID in the device label, the MS2109
+    // shows up as a generic "USB Video" / "USB Audio" device instead
+    if (isChromeBook()) {
+        const pattern = /USB.+(Video|Audio)/;
+        const found = devices.find(x => x.kind === type && pattern.test(x.label));
+        if (found) {
+            return found;
+        }
     }
 
     // Temporary workaround for #1 - not sure why this check can't pass Ubuntu 26.04 Chrome
@@ -1256,6 +1273,8 @@ async function startStream() {
             { vid: '534d', pid: '2109' , product: "DezKVM-Go Original"}, // MS2109, original DezKVM-Go
             { vid: '345f', pid: '2109' , product: "DezKVM-Go Gen2"}, // DezKVM-Go gen2
         ]
+        const deviceLabels = devices.map(x => `${x.label} (${x.kind})`);
+        console.info('Found devices', deviceLabels);
         let videoDevice = null;
         let audioDevice = null;
         for (const { vid, pid, product } of supportedVidPidPairs) {
@@ -1269,19 +1288,16 @@ async function startStream() {
         }
 
         if (!videoDevice) {
-            console.error('MS2109 video device not found');
+            console.error('MS2109 video device not found', deviceLabels.join(', '));
             $('body').toast({
-                message: '<i class="red exclamation triangle icon"></i> MS2109 video capture device not found. Please connect the device and try again.'
+                message: '<i class="red exclamation triangle icon"></i> MS2109 video capture device not found. Please connect the device and try again. ' +
+                    `Did not recognize any of ${escapeHtml(deviceLabels.join(', '))}.`
             });
-
-            // Print all connected video devices for debugging
-            console.log('Connected video devices:');
-            devices.filter(d => d.kind === 'videoinput').forEach(d => console.log(`- ${d.label} (id: ${d.deviceId})`));
             return;
         }
 
         if (!audioDevice) {
-            console.warn('MS2109 audio device not found');
+            console.warn('MS2109 audio device not found', deviceLabels.join(', '));
         }
 
         // Try different video modes
@@ -1306,7 +1322,9 @@ async function startStream() {
 
         if (!videoStream) {
             console.error('Failed to start video stream with all modes');
-            alert('Failed to start video stream. Please check the device connection.');
+            $('body').toast({
+                message: '<i class="red exclamation triangle icon"></i> Failed to start video stream. Please check the device connection.'
+            });
             return;
         }
 
