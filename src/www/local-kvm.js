@@ -1230,28 +1230,50 @@ function isLinuxChromium() {
     return /Linux/.test(ua) && /Chrome\//.test(ua) && !/Android/.test(ua);
 }
 
-function findDevice(devices, type, vid, pid) {
-    // Spec doesn't define how to find a device with specified VID/PID
-    // Chrome appends (vid:pid) to the device label
-    const pattern = new RegExp(`\\(${vid}:${pid}\\)\\s*$`, 'i');
-    const found = devices.find(x => x.kind === type && pattern.test(x.label));
-    if (found) {
-        return { device: found, exact: true };
-    }
+/*
+    Device matching tiers, ordered from most to least confident.
 
-    // Some host drivers (e.g. RaspiOS/V4L2 on Argon ONE UP CM5, see #8) don't pass the
-    // USB vid:pid through to the browser at all, labeling the device as just "2109 (V4L2)"
-    // or "2109 Analog Stereo". Fall back to matching the PID alone in the label.
-    const pidOnly = devices.find(x => x.kind === type && new RegExp(pid, 'i').test(x.label));
-    if (pidOnly) {
-        return { device: pidOnly, exact: false };
-    }
+    Each tier is tried against *every* supported VID:PID pair before moving on to
+    the next one. Matching pair-by-pair instead would let the first pair grab a
+    device via a low confidence fallback (e.g. PID only, which is shared between
+    the Original and the Gen2) and hide the exact match available on a later pair.
+*/
+const MATCH_TIERS = ['exact', 'pid', 'any'];
 
+function findDevice(devices, type, vid, pid, tier) {
     // Temporary workaround for #1 - not sure why this check can't pass Ubuntu 26.04 Chrome
-    if (isLinuxChromium()) {
-        const anyDevice = devices.find(x => x.kind === type);
-        if (anyDevice) {
-            return { device: anyDevice, exact: false };
+    // The "any" tier hands over the first device of the requested kind, so only allow
+    // it on the hosts that actually need it.
+    if (tier === 'any' && !isLinuxChromium()) {
+        return null;
+    }
+
+    // Chrome appends (vid:pid) to the device label, the spec doesn't define
+    // how to find a device with a specified VID/PID so this is all we have
+    const labelSuffix = ('(' + vid + ':' + pid + ')').toLowerCase();
+    const pidOnly = pid.toLowerCase();
+
+    for (const device of devices) {
+        if (device.kind !== type) {
+            continue;
+        }
+
+        // Labels are compared in lower case, and trailing spaces are dropped so a
+        // label like "USB Video (534d:2109) " still matches the suffix
+        const label = (device.label || '').toLowerCase().trimEnd();
+        if (tier === 'exact') {
+            if (label.endsWith(labelSuffix)) {
+                return device;
+            }
+        } else if (tier === 'pid') {
+            // Some host drivers (e.g. RaspiOS/V4L2 on Argon ONE UP CM5, see #8) don't pass the
+            // USB vid:pid through to the browser at all, labeling the device as just "2109 (V4L2)"
+            // or "2109 Analog Stereo". Fall back to matching the PID alone in the label.
+            if (label.includes(pidOnly)) {
+                return device;
+            }
+        } else if (tier === 'any') {
+            return device;
         }
     }
     return null;
@@ -1270,16 +1292,21 @@ async function startStream() {
         let videoDevice = null;
         let audioDevice = null;
         let fuzzyMatch = false;
-        for (const { vid, pid, product } of supportedVidPidPairs) {
-            const videoMatch = findDevice(devices, 'videoinput', vid, pid);
-            const audioMatch = findDevice(devices, 'audioinput', vid, pid);
-            if (videoMatch && audioMatch) {
-                videoDevice = videoMatch.device;
-                audioDevice = audioMatch.device;
-                fuzzyMatch = !videoMatch.exact || !audioMatch.exact;
-                console.log(`Found video device with VID:PID ${vid}:${pid}`);
-                productId = product;
-                break;
+        // Give every supported VID:PID pair a chance at the current tier before
+        // degrading to a less confident match, see MATCH_TIERS above.
+        matching:
+        for (const tier of MATCH_TIERS) {
+            for (const { vid, pid, product } of supportedVidPidPairs) {
+                const videoMatch = findDevice(devices, 'videoinput', vid, pid, tier);
+                const audioMatch = findDevice(devices, 'audioinput', vid, pid, tier);
+                if (videoMatch && audioMatch) {
+                    videoDevice = videoMatch;
+                    audioDevice = audioMatch;
+                    fuzzyMatch = tier !== 'exact';
+                    console.log(`Found video device with VID:PID ${vid}:${pid} (matched by ${tier})`);
+                    productId = product;
+                    break matching;
+                }
             }
         }
 
