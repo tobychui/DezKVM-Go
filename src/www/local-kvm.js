@@ -1386,7 +1386,14 @@ function stopCurrentStream() {
     }
 }
 
+let streamStartInProgress = false;
+
 async function startStream() {
+    if (streamStartInProgress) {
+        console.log('startStream() is already in progress, skipping duplicate call');
+        return;
+    }
+    streamStartInProgress = true;
     try {
         // Only getUserMedia triggers the permission popup, enumerateDevices won't
         await requestMediaDevicePermission();
@@ -1558,6 +1565,8 @@ async function startStream() {
     } catch (e) {
         console.error('Unable to access media devices:', e);
         alert('Unable to access media devices: ' + e.message);
+    } finally {
+        streamStartInProgress = false;
     }
 }
 
