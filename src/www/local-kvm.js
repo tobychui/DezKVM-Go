@@ -1230,56 +1230,197 @@ function isLinuxChromium() {
     return /Linux/.test(ua) && /Chrome\//.test(ua) && !/Android/.test(ua);
 }
 
-function findDevice(devices, type, vid, pid) {
-    // Spec doesn't define how to find a device with specified VID/PID
-    // Chrome appends (vid:pid) to the device label
-    const pattern = new RegExp(`\\(${vid}:${pid}\\)\\s*$`, 'i');
-    const found = devices.find(x => x.kind === type && pattern.test(x.label));
-    if (found) {
-        return { device: found, exact: true };
-    }
+/*
+    Device matching tiers, ordered from most to least confident.
 
-    // Some host drivers (e.g. RaspiOS/V4L2 on Argon ONE UP CM5, see #8) don't pass the
-    // USB vid:pid through to the browser at all, labeling the device as just "2109 (V4L2)"
-    // or "2109 Analog Stereo". Fall back to matching the PID alone in the label.
-    const pidOnly = devices.find(x => x.kind === type && new RegExp(pid, 'i').test(x.label));
-    if (pidOnly) {
-        return { device: pidOnly, exact: false };
-    }
+    Each tier is tried against *every* supported VID:PID pair before moving on to
+    the next one. Matching pair-by-pair instead would let the first pair grab a
+    device via a low confidence fallback (e.g. PID only, which is shared between
+    the Original and the Gen2) and hide the exact match available on a later pair.
+*/
+const MATCH_TIERS = ['exact', 'pid', 'any'];
 
+function findDevice(devices, type, vid, pid, tier) {
     // Temporary workaround for #1 - not sure why this check can't pass Ubuntu 26.04 Chrome
-    if (isLinuxChromium()) {
-        const anyDevice = devices.find(x => x.kind === type);
-        if (anyDevice) {
-            return { device: anyDevice, exact: false };
+    // The "any" tier hands over the first device of the requested kind, so only allow
+    // it on the hosts that actually need it.
+    if (tier === 'any' && !isLinuxChromium()) {
+        return null;
+    }
+
+    // Chrome appends (vid:pid) to the device label, the spec doesn't define
+    // how to find a device with a specified VID/PID so this is all we have
+    const labelSuffix = ('(' + vid + ':' + pid + ')').toLowerCase();
+    const pidOnly = pid.toLowerCase();
+
+    for (const device of devices) {
+        if (device.kind !== type) {
+            continue;
+        }
+
+        // Labels are compared in lower case, and trailing spaces are dropped so a
+        // label like "USB Video (534d:2109) " still matches the suffix
+        const label = (device.label || '').toLowerCase().trimEnd();
+        if (tier === 'exact') {
+            if (label.endsWith(labelSuffix)) {
+                return device;
+            }
+        } else if (tier === 'pid') {
+            // Some host drivers (e.g. RaspiOS/V4L2 on Argon ONE UP CM5, see #8) don't pass the
+            // USB vid:pid through to the browser at all, labeling the device as just "2109 (V4L2)"
+            // or "2109 Analog Stereo". Fall back to matching the PID alone in the label.
+            if (label.includes(pidOnly)) {
+                return device;
+            }
+        } else if (tier === 'any') {
+            return device;
         }
     }
     return null;
 }
 
+const SUPPORTED_VID_PID_PAIRS = [
+    { vid: '534d', pid: '2109' , product: "DezKVM-Go Original"}, // MS2109, original DezKVM-Go
+    { vid: '345f', pid: '2109' , product: "DezKVM-Go Gen2"}, // DezKVM-Go gen2
+];
+
+// Auto detect the capture card from the supported VID:PID list. Returns the matched
+// video/audio devices (null when nothing matched), whether the match relied on a
+// fallback tier, and the product name of the pair that won.
+function autoDetectCaptureDevices(devices) {
+    // Give every supported VID:PID pair a chance at the current tier before
+    // degrading to a less confident match, see MATCH_TIERS above.
+    for (const tier of MATCH_TIERS) {
+        for (const { vid, pid, product } of SUPPORTED_VID_PID_PAIRS) {
+            const videoMatch = findDevice(devices, 'videoinput', vid, pid, tier);
+            const audioMatch = findDevice(devices, 'audioinput', vid, pid, tier);
+            if (videoMatch && audioMatch) {
+                console.log(`Found video device with VID:PID ${vid}:${pid} (matched by ${tier})`);
+                return {
+                    videoDevice: videoMatch,
+                    audioDevice: audioMatch,
+                    fuzzyMatch: tier !== 'exact',
+                    product: product,
+                };
+            }
+        }
+    }
+    return { videoDevice: null, audioDevice: null, fuzzyMatch: false, product: null };
+}
+
+/*
+    Manual Video Input Selection
+
+    Auto detection covers the supported capture cards, but users whose host mislabels
+    the device (or who want to point the viewer at a different capture card entirely)
+    can override the video input from Settings > Display. The override holds a
+    deviceId, or VIDEO_DEVICE_AUTO to leave it to auto detection. Only video is
+    overridden - audio stays on whatever auto detection found.
+*/
+const VIDEO_DEVICE_AUTO = 'auto';
+let videoDeviceOverride = VIDEO_DEVICE_AUTO;
+// Device the selector dropdown points at. Equal to videoDeviceOverride unless the user
+// is previewing a different device that has not been confirmed yet.
+let pendingVideoDeviceId = VIDEO_DEVICE_AUTO;
+
+function setVideoDeviceOverride(deviceId) {
+    videoDeviceOverride = deviceId || VIDEO_DEVICE_AUTO;
+    // Applying an override always clears any pending state, otherwise the selector
+    // would come up looking like it has unconfirmed changes
+    pendingVideoDeviceId = videoDeviceOverride;
+}
+
+function getVideoDeviceOverride() {
+    return videoDeviceOverride;
+}
+
+// The settings overlay is loaded asynchronously and applies its saved values ~100ms
+// later, but startStream() can run before that. Read the saved override straight from
+// storage so the very first capture already uses the user's chosen device.
+function loadVideoDeviceOverrideFromStorage() {
+    try {
+        const savedData = localStorage.getItem('dezkvm_settings');
+        if (!savedData) return;
+        const saved = JSON.parse(savedData);
+        if (saved && saved.saveToLocalStorage !== false && typeof saved.videoDeviceOverride === 'string') {
+            setVideoDeviceOverride(saved.videoDeviceOverride);
+        }
+    } catch (e) {
+        // Malformed or unavailable storage, stay on auto detection
+    }
+}
+
+function findDeviceById(devices, type, deviceId) {
+    for (const device of devices) {
+        if (device.kind === type && device.deviceId === deviceId) {
+            return device;
+        }
+    }
+    return null;
+}
+
+// Release the current capture session. Most hosts (V4L2 especially) only allow a
+// single reader per capture device, so the old tracks have to be closed before the
+// same device can be opened again when the stream is restarted or switched.
+function stopCurrentStream() {
+    if (window.currentStream) {
+        for (const track of window.currentStream.getTracks()) {
+            track.stop();
+        }
+        window.currentStream = null;
+    }
+    if (window.currentAudioStream) {
+        for (const track of window.currentAudioStream.getTracks()) {
+            track.stop();
+        }
+        window.currentAudioStream = null;
+    }
+    if (window.kvmAudioContext) {
+        window.kvmAudioContext.close().catch(() => {});
+        window.kvmAudioContext = null;
+        window.kvmGainNode = null;
+    }
+    const video = document.getElementById('video');
+    if (video) {
+        video.srcObject = null;
+    }
+}
+
+let streamStartInProgress = false;
+
 async function startStream() {
+    if (streamStartInProgress) {
+        console.log('startStream() is already in progress, skipping duplicate call');
+        return;
+    }
+    streamStartInProgress = true;
     try {
         // Only getUserMedia triggers the permission popup, enumerateDevices won't
         await requestMediaDevicePermission();
 
         const devices = await window.navigator.mediaDevices.enumerateDevices();
-        const supportedVidPidPairs = [
-            { vid: '534d', pid: '2109' , product: "DezKVM-Go Original"}, // MS2109, original DezKVM-Go
-            { vid: '345f', pid: '2109' , product: "DezKVM-Go Gen2"}, // DezKVM-Go gen2
-        ]
-        let videoDevice = null;
-        let audioDevice = null;
-        let fuzzyMatch = false;
-        for (const { vid, pid, product } of supportedVidPidPairs) {
-            const videoMatch = findDevice(devices, 'videoinput', vid, pid);
-            const audioMatch = findDevice(devices, 'audioinput', vid, pid);
-            if (videoMatch && audioMatch) {
-                videoDevice = videoMatch.device;
-                audioDevice = audioMatch.device;
-                fuzzyMatch = !videoMatch.exact || !audioMatch.exact;
-                console.log(`Found video device with VID:PID ${vid}:${pid}`);
-                productId = product;
-                break;
+        const detected = autoDetectCaptureDevices(devices);
+        let videoDevice = detected.videoDevice;
+        let audioDevice = detected.audioDevice;
+        let fuzzyMatch = detected.fuzzyMatch;
+        if (detected.product) {
+            productId = detected.product;
+        }
+
+        // A manually selected video input wins over auto detection
+        if (videoDeviceOverride !== VIDEO_DEVICE_AUTO) {
+            const selected = findDeviceById(devices, 'videoinput', videoDeviceOverride);
+            if (selected) {
+                videoDevice = selected;
+                fuzzyMatch = false; // The user picked this device, there is nothing to second guess
+                console.log(`Using manually selected video device: ${selected.label || selected.deviceId}`);
+            } else {
+                console.warn('Manually selected video device is no longer available, falling back to auto detection');
+                $('body').toast({
+                    message: '<i class="yellow warning sign icon"></i> The selected video device is no longer available. Falling back to automatic detection.'
+                });
+                setVideoDeviceOverride(VIDEO_DEVICE_AUTO);
+                refreshVideoDeviceSelector();
             }
         }
 
@@ -1307,6 +1448,10 @@ async function startStream() {
                 message: '<i class="yellow warning sign icon"></i> Capture device VID:PID could not be confirmed. If this is the wrong device, please disconnect other v4l2 devices and reload the page.'
             });
         }
+
+        // Close the previous session first, otherwise re-opening the same device
+        // (restart, or switching back to it) is refused by the host
+        stopCurrentStream();
 
         // Try different video modes
         let videoStream = null;
@@ -1355,6 +1500,7 @@ async function startStream() {
                         autoGainControl: false,
                     },
                 });
+                window.currentAudioStream = audioStream;
 
                 // Create audio context for processing
                 window.kvmAudioContext = new AudioContext({ sampleRate: 96000 });
@@ -1402,6 +1548,11 @@ async function startStream() {
                 window.kvmGainNode.connect(processor);
                 processor.connect(window.kvmAudioContext.destination);
 
+                // The context is recreated on every (re)start, so re-apply the mute state
+                if (typeof audioEnabled !== 'undefined' && !audioEnabled) {
+                    window.kvmAudioContext.suspend();
+                }
+
                 console.log('Audio stream started successfully');
             } catch (e) {
                 console.error('Failed to start audio stream:', e);
@@ -1414,6 +1565,8 @@ async function startStream() {
     } catch (e) {
         console.error('Unable to access media devices:', e);
         alert('Unable to access media devices: ' + e.message);
+    } finally {
+        streamStartInProgress = false;
     }
 }
 
@@ -1493,6 +1646,8 @@ document.getElementById('kvmConnectBtn').addEventListener('click', () => {
 
 // Start stream: either show prompt or auto-start
 (function initCapture() {
+    // Pick up a previously chosen video input before the first capture starts
+    loadVideoDeviceOverrideFromStorage();
     let skipPrompt = false;
     try { skipPrompt = localStorage.getItem(SKIP_CONNECT_PROMPT_KEY) === 'true'; } catch (e) {}
     if (skipPrompt) {
@@ -1502,8 +1657,16 @@ document.getElementById('kvmConnectBtn').addEventListener('click', () => {
     }
 })();
 
-navigator.mediaDevices.addEventListener('devicechange', () => {
-   startStream();
+navigator.mediaDevices.addEventListener('devicechange', async () => {
+    await startStream();
+
+    // The restart replaced the stream the preview may have been borrowing, so rebuild
+    // the selector and re-attach the preview while the settings panel is open
+    const overlay = document.getElementById('settings-overlay');
+    if (overlay && overlay.classList.contains('visible')) {
+        await refreshVideoDeviceSelector();
+        startVideoDevicePreview(pendingVideoDeviceId);
+    }
 });
 
 /*
@@ -1645,6 +1808,9 @@ function toggleSettingsOverlay() {
         // Update capture properties when opening
         if (overlay.classList.contains('visible')) {
             updateCapturePropertiesTable();
+            openVideoDeviceSelector();
+        } else {
+            closeVideoDeviceSelector();
         }
     }
 }
@@ -1653,6 +1819,8 @@ function closeSettingsOverlay() {
     const overlay = document.getElementById('settings-overlay');
     if (overlay) {
         overlay.classList.remove('visible');
+        // Release the preview device as soon as the panel is out of sight
+        closeVideoDeviceSelector();
     }
 }
 
@@ -1728,6 +1896,205 @@ function updateCapturePropertiesTable() {
     if (settings.aspectRatio) addRow('Aspect Ratio', settings.aspectRatio.toFixed(4));
     if (capabilities.width) addRow('Max Resolution', capabilities.width.max + ' × ' + capabilities.height.max);
     if (capabilities.frameRate) addRow('Max Frame Rate', capabilities.frameRate.max + ' fps');
+}
+
+/*
+    Video Input Selector & Preview (Settings > Display)
+
+    Changing the dropdown only opens a preview stream. The main KVM view is left
+    untouched until the user confirms, so a wrong pick can be backed out of without
+    losing the working feed.
+*/
+
+// Stream feeding the preview element, null when the preview is idle or is borrowing
+// the main stream (see startVideoDevicePreview)
+let videoDevicePreviewStream = null;
+
+function setVideoPreviewStatus(text) {
+    const status = document.getElementById('videoDevicePreviewStatus');
+    if (status) {
+        status.textContent = text || '';
+    }
+}
+
+// Show or hide the confirm/cancel row depending on whether a change is pending
+function updateVideoDeviceActions() {
+    const actions = document.getElementById('videoDeviceActions');
+    if (actions) {
+        actions.style.display = pendingVideoDeviceId === videoDeviceOverride ? 'none' : '';
+    }
+}
+
+// Rebuild the device list. Called when the settings overlay opens and whenever
+// devices are plugged in or removed.
+async function refreshVideoDeviceSelector() {
+    const dropdown = document.getElementById('videoDeviceDropdown');
+    if (!dropdown) return;
+
+    let devices = [];
+    try {
+        devices = await window.navigator.mediaDevices.enumerateDevices();
+    } catch (e) {
+        console.error('Failed to enumerate video devices:', e);
+        return;
+    }
+
+    const videoInputs = devices.filter(d => d.kind === 'videoinput');
+    const detected = autoDetectCaptureDevices(devices);
+    const autoLabel = detected.videoDevice
+        ? `Auto detect (${detected.videoDevice.label || 'unnamed device'})`
+        : 'Auto detect (no capture device found)';
+
+    dropdown.innerHTML = '';
+    const autoOption = document.createElement('option');
+    autoOption.value = VIDEO_DEVICE_AUTO;
+    autoOption.textContent = autoLabel;
+    dropdown.appendChild(autoOption);
+
+    videoInputs.forEach((device, index) => {
+        const option = document.createElement('option');
+        option.value = device.deviceId;
+        // Labels are empty until the user has granted camera permission
+        option.textContent = device.label || `Video device ${index + 1}`;
+        dropdown.appendChild(option);
+    });
+
+    // Drop a pending selection that has been unplugged in the meantime
+    if (pendingVideoDeviceId !== VIDEO_DEVICE_AUTO &&
+        !findDeviceById(devices, 'videoinput', pendingVideoDeviceId)) {
+        pendingVideoDeviceId = videoDeviceOverride;
+    }
+    dropdown.value = pendingVideoDeviceId;
+    if (!dropdown.value) {
+        // The saved override is gone, fall back to auto
+        pendingVideoDeviceId = VIDEO_DEVICE_AUTO;
+        dropdown.value = VIDEO_DEVICE_AUTO;
+    }
+    updateVideoDeviceActions();
+}
+
+// Resolve a dropdown value to a concrete deviceId ('auto' asks the detector)
+async function resolveVideoDeviceId(selection) {
+    if (selection !== VIDEO_DEVICE_AUTO) {
+        return selection;
+    }
+    try {
+        const devices = await window.navigator.mediaDevices.enumerateDevices();
+        const detected = autoDetectCaptureDevices(devices);
+        return detected.videoDevice ? detected.videoDevice.deviceId : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+async function startVideoDevicePreview(selection) {
+    const preview = document.getElementById('videoDevicePreview');
+    if (!preview) return;
+
+    stopVideoDevicePreview();
+
+    const deviceId = await resolveVideoDeviceId(selection);
+    if (!deviceId) {
+        setVideoPreviewStatus('No capture device detected.');
+        return;
+    }
+
+    // When the pick is the device already feeding the main view, borrow that stream
+    // instead of opening a second reader - capture cards rarely allow two at once
+    const liveTrack = window.currentStream ? window.currentStream.getVideoTracks()[0] : null;
+    if (liveTrack && liveTrack.getSettings().deviceId === deviceId) {
+        preview.srcObject = window.currentStream;
+        setVideoPreviewStatus('Currently in use by the KVM view.');
+        return;
+    }
+
+    setVideoPreviewStatus('Starting preview…');
+    try {
+        videoDevicePreviewStream = await window.navigator.mediaDevices.getUserMedia({
+            video: { deviceId: { exact: deviceId } },
+        });
+        preview.srcObject = videoDevicePreviewStream;
+        setVideoPreviewStatus('Preview only - press Confirm to switch the KVM view.');
+    } catch (e) {
+        console.error('Failed to preview video device:', e);
+        setVideoPreviewStatus('Could not open this device for preview. It may be in use by another application.');
+    }
+}
+
+function stopVideoDevicePreview() {
+    const preview = document.getElementById('videoDevicePreview');
+    if (preview) {
+        preview.srcObject = null;
+    }
+    // Only tracks we opened ourselves are stopped, never the borrowed main stream
+    if (videoDevicePreviewStream) {
+        for (const track of videoDevicePreviewStream.getTracks()) {
+            track.stop();
+        }
+        videoDevicePreviewStream = null;
+    }
+    setVideoPreviewStatus('');
+}
+
+// Dropdown onchange handler
+function onVideoDeviceSelectionChange() {
+    const dropdown = document.getElementById('videoDeviceDropdown');
+    if (!dropdown) return;
+    pendingVideoDeviceId = dropdown.value;
+    updateVideoDeviceActions();
+    startVideoDevicePreview(pendingVideoDeviceId);
+}
+
+// Apply the previewed device to the main KVM view
+async function confirmVideoDeviceSelection() {
+    const confirmBtn = document.getElementById('videoDeviceConfirmBtn');
+    if (confirmBtn) confirmBtn.classList.add('loading', 'disabled');
+
+    // Free the preview first, the main stream is about to open the same device
+    stopVideoDevicePreview();
+    setVideoDeviceOverride(pendingVideoDeviceId);
+    if (typeof saveSettingsToLocalStorage === 'function') {
+        saveSettingsToLocalStorage();
+    }
+
+    await startStream();
+
+    if (confirmBtn) confirmBtn.classList.remove('loading', 'disabled');
+    updateVideoDeviceActions();
+    updateCapturePropertiesTable();
+    // Re-attach the preview, which now shows the live KVM stream
+    startVideoDevicePreview(pendingVideoDeviceId);
+
+    $('body').toast({
+        message: videoDeviceOverride === VIDEO_DEVICE_AUTO
+            ? '<i class="check icon"></i> Video input reset to automatic detection'
+            : '<i class="check icon"></i> Video input device updated'
+    });
+}
+
+// Drop the pending pick and go back to what the KVM view is actually using
+function cancelVideoDeviceSelection() {
+    pendingVideoDeviceId = videoDeviceOverride;
+    const dropdown = document.getElementById('videoDeviceDropdown');
+    if (dropdown) dropdown.value = pendingVideoDeviceId;
+    updateVideoDeviceActions();
+    startVideoDevicePreview(pendingVideoDeviceId);
+}
+
+// Called when the settings overlay opens/closes so the preview only runs while visible
+async function openVideoDeviceSelector() {
+    pendingVideoDeviceId = videoDeviceOverride;
+    await refreshVideoDeviceSelector();
+    startVideoDevicePreview(pendingVideoDeviceId);
+}
+
+function closeVideoDeviceSelector() {
+    stopVideoDevicePreview();
+    // Forget an unconfirmed pick so the panel reopens in a consistent state
+    pendingVideoDeviceId = videoDeviceOverride;
+    const dropdown = document.getElementById('videoDeviceDropdown');
+    if (dropdown) dropdown.value = pendingVideoDeviceId;
+    updateVideoDeviceActions();
 }
 
 // Extra audio gain (multiplier) applied to the capture card audio feed.
