@@ -163,6 +163,36 @@
     color: #555 !important;
 }
 
+/* Video input selector & preview */
+.settings-field select.video-device-dropdown{
+    width: 100%;
+    max-width: 420px;
+}
+
+.video-device-preview-wrap{
+    width: 100%;
+    max-width: 420px;
+    aspect-ratio: 16 / 9;
+    margin-top: 0.8em;
+    background: #000;
+    border: 1px solid #d8d8d8;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.video-device-preview-wrap video{
+    width: 100%;
+    height: 100%;
+    display: block;
+    /* Letterbox instead of cropping, capture sources are not always 16:9 */
+    object-fit: contain;
+}
+
+#videoDevicePreviewStatus{
+    margin-top: 0.5em;
+    max-width: 420px;
+}
+
 /* Responsive: stack on small screens */
 @media (max-width: 580px){
     .settings-layout{
@@ -232,6 +262,29 @@
                     <div class="content">Display</div>
                 </h3>
                 <div class="ui divider"></div>
+
+                <div class="settings-field">
+                    <label>Video Input Device</label>
+                    <p class="field-description">
+                        The capture device is detected automatically. <br>
+                        If the wrong device is picked, choose one manually below.
+                    </p>
+                    <select id="videoDeviceDropdown" class="ui dropdown video-device-dropdown" onchange="onVideoDeviceSelectionChange()">
+                        <option value="auto">Auto detect</option>
+                    </select>
+                    <div class="video-device-preview-wrap">
+                        <video id="videoDevicePreview" autoplay muted playsinline></video>
+                    </div>
+                    <p class="field-description" id="videoDevicePreviewStatus"></p>
+                    <div id="videoDeviceActions" style="display: none;">
+                        <button id="videoDeviceConfirmBtn" class="ui small primary button" onclick="confirmVideoDeviceSelection()">
+                            <i class="check icon"></i> Confirm
+                        </button>
+                        <button class="ui small basic button" onclick="cancelVideoDeviceSelection()">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
 
                 <div class="settings-field">
                     <label>Capture Properties</label>
@@ -492,6 +545,7 @@ const SETTINGS_TEMPLATE = {
     baudrate: 115200,
     saveToLocalStorage: true,
     imageSharpening: false,
+    videoDeviceOverride: 'auto',
     stackKeysEnabled: true,
     stackKeyToggle: 'ShiftRight',
     stackKeyLongPress: 1.0
@@ -572,6 +626,8 @@ function getCurrentSettings() {
     settings.askOnPaste = document.getElementById('chkSettingsAskOnPaste')?.checked ?? SETTINGS_TEMPLATE.askOnPaste;
     settings.relativeMouseSensitivity = (typeof relativeMouseSensitivity !== 'undefined') ? relativeMouseSensitivity : SETTINGS_TEMPLATE.relativeMouseSensitivity;
     settings.imageSharpening = document.getElementById('chkSettingsImageSharpening')?.checked ?? SETTINGS_TEMPLATE.imageSharpening;
+    // Read from the variable, not the dropdown - the dropdown may hold an unconfirmed pick
+    settings.videoDeviceOverride = (typeof getVideoDeviceOverride === 'function') ? getVideoDeviceOverride() : SETTINGS_TEMPLATE.videoDeviceOverride;
     settings.stackKeysEnabled = document.getElementById('chkSettingsStackKeysEnabled')?.checked ?? SETTINGS_TEMPLATE.stackKeysEnabled;
     settings.stackKeyToggle = (typeof stackKeyToggleCode !== 'undefined') ? stackKeyToggleCode : SETTINGS_TEMPLATE.stackKeyToggle;
     settings.stackKeyLongPress = (typeof stackKeyLongPressMs !== 'undefined') ? (stackKeyLongPressMs / 1000) : SETTINGS_TEMPLATE.stackKeyLongPress;
@@ -754,6 +810,17 @@ function applySettingsToUI(settings) {
             } else {
                 if (typeof window.stopSharpeningPipeline  === 'function') window.stopSharpeningPipeline();
             }
+        }
+    }
+
+    // Apply video input device override. startStream() already picked this up straight
+    // from storage on boot, so this only needs to bring the variable and the UI in line.
+    if (settings.hasOwnProperty('videoDeviceOverride')) {
+        if (typeof setVideoDeviceOverride === 'function') {
+            setVideoDeviceOverride(settings.videoDeviceOverride);
+        }
+        if (typeof refreshVideoDeviceSelector === 'function') {
+            refreshVideoDeviceSelector();
         }
     }
 
