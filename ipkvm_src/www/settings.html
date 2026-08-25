@@ -1,0 +1,772 @@
+<!-- This document is supposed to be loaded via AJAX into index.html -->
+<style>
+/* Settings Overlay Styles */
+#settings-overlay{
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 2000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+
+#settings-overlay.visible{
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.settings-panel{
+    position: relative;
+    width: 720px;
+    max-width: 92vw;
+    height: 80vh;
+    background-color: #f5f5f5;
+    border-radius: 0.8em;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.settings-close-btn{
+    position: absolute;
+    top: 0.5em;
+    right: 1.8em;
+    z-index: 10;
+    background: transparent;
+    border: none;
+    font-size: 1.15em;
+    cursor: pointer;
+    color: #666;
+    padding: 0.3em;
+    line-height: 1;
+    border-radius: 4px;
+    transition: background 0.15s;
+    margin-right: 0 !important;
+}
+
+.settings-close-btn:hover{
+    background: rgba(0,0,0,0.08);
+    color: #333;
+}
+
+.settings-layout{
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Left column – category menu */
+.settings-menu-col{
+    width: 200px;
+    min-width: 170px;
+    background: #eaeaea;
+    border-right: 1px solid #d8d8d8;
+    padding: 1.2em;
+    padding-right: 0.6em;
+    overflow-y: auto;
+}
+
+.settings-category-menu{
+    width: 100% !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.settings-category-menu .item{
+    border-radius: 6px !important;
+    margin-bottom: 2px !important;
+    padding: 0.75em 1em !important;
+    font-size: 0.92em !important;
+    color: #444 !important;
+    transition: background 0.15s !important;
+}
+
+.settings-category-menu .item:hover{
+    background: rgba(0,0,0,0.06) !important;
+}
+
+.settings-category-menu .item.active{
+    background: rgba(33,133,208,0.14) !important;
+    color: #1a69a4 !important;
+    font-weight: 600 !important;
+}
+
+.settings-category-menu .item i.icon{
+    margin-right: 0.5em;
+    opacity: 0.7;
+}
+
+/* Right column – content */
+.settings-content-col{
+    flex: 1;
+    padding: 1.6em 2em;
+    overflow-y: auto;
+}
+
+.settings-tab-content{
+    display: none;
+}
+
+.settings-tab-content.active{
+    display: block;
+}
+
+.settings-tab-content .ui.header{
+    margin-bottom: 0 !important;
+}
+
+.settings-field{
+    margin-bottom: 1.6em;
+}
+
+.settings-field > label{
+    display: block;
+    font-weight: 600;
+    font-size: 0.95em;
+    margin-bottom: 0.15em;
+    color: #333;
+}
+
+.settings-field .field-description{
+    font-size: 0.85em;
+    color: #777;
+    margin: 0 0 0.6em 0;
+}
+
+.settings-field .ui.dropdown,
+.settings-field select{
+    max-width: 320px;
+}
+
+.settings-field select:disabled{
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.settings-field .ui.checkbox{
+    margin-top: 0.3em;
+}
+
+.settings-field .ui.checkbox label{
+    font-weight: normal !important;
+    color: #555 !important;
+}
+
+/* Wide dropdowns (resolution, audio quality) */
+.settings-field select.settings-dropdown{
+    width: 100%;
+    max-width: 420px;
+}
+
+/* Responsive: stack on small screens */
+@media (max-width: 580px){
+    .settings-layout{
+        flex-direction: column;
+    }
+
+    .settings-menu-col{
+        width: 100%;
+        min-width: unset;
+        border-right: none;
+        border-bottom: 1px solid #d8d8d8;
+        padding: 0.6em;
+    }
+
+    .settings-category-menu{
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        gap: 0.3em;
+    }
+
+    .settings-category-menu .item{
+        flex: 0 0 auto;
+        margin-bottom: 0 !important;
+    }
+
+    .settings-content-col{
+        padding: 1em;
+    }
+}
+</style><div class="settings-panel">
+    <!-- Close button -->
+    <button class="settings-close-btn ui circular icon button" onclick="closeSettingsOverlay()">
+        <i class="close icon"></i>
+    </button>
+    <div class="settings-layout">
+        <!-- Left: category menu -->
+        <div class="settings-menu-col">
+            <div class="ui secondary vertical menu settings-category-menu">
+                <a class="item active" data-tab="display">
+                    <i class="tv icon"></i> Display
+                </a>
+                <a class="item" data-tab="audio">
+                    <i class="volume up icon"></i> Audio
+                </a>
+                <a class="item" data-tab="keyboard-mouse">
+                    <i class="keyboard icon"></i> Keyboard &amp; Mouse
+                </a>
+                <a class="item" data-tab="hotkeys">
+                    <i class="bolt icon"></i> Hotkeys
+                </a>
+                <a class="item" data-tab="device">
+                    <i class="microchip icon"></i> Device
+                </a>
+                <a class="item" data-tab="about">
+                    <i class="info circle icon"></i> About
+                </a>
+            </div>
+        </div>
+        <!-- Right: settings content -->
+        <div class="settings-content-col">
+            <!-- Display -->
+            <div class="settings-tab-content active" data-tab="display">
+                <h3 class="ui header">
+                    <i class="tv icon"></i>
+                    <div class="content">Display</div>
+                </h3>
+                <div class="ui divider"></div>
+
+                <div class="settings-field">
+                    <label>Capture Resolution</label>
+                    <p class="field-description">
+                        Applies to the capture card itself, so it affects every connected
+                        client. Higher resolutions and frame rates need more bandwidth:
+                        1080p30 MJPEG is roughly 50 Mbps on the wire.
+                    </p>
+                    <select id="resolutionDropdown" class="ui dropdown settings-dropdown">
+                        <option>Loading…</option>
+                    </select>
+                    <div style="margin-top: 0.8em;">
+                        <button id="applyResolutionBtn" class="ui small primary button" onclick="applySelectedResolution()">
+                            <i class="check icon"></i> Apply
+                        </button>
+                    </div>
+                </div>
+
+                <div class="settings-field">
+                    <label>Fullscreen</label>
+                    <p class="field-description">Enter or exit browser fullscreen mode.</p>
+                    <button class="ui button" onclick="toggleFullScreen()">
+                        <i class="expand icon"></i> Toggle Fullscreen
+                    </button>
+                </div>
+            </div>
+
+            <!-- Audio -->
+            <div class="settings-tab-content" data-tab="audio">
+                <h3 class="ui header">
+                    <i class="volume up icon"></i>
+                    <div class="content">Audio</div>
+                </h3>
+                <div class="ui divider"></div>
+
+                <div class="settings-field">
+                    <label>Remote Audio</label>
+                    <p class="field-description">Play the HDMI audio captured by the card.</p>
+                    <div class="ui toggle checkbox" id="enableAudioCheckbox">
+                        <input type="checkbox" id="chkSettingsEnableAudio" class="auto-save-setting" onchange="toggleEnableAudio()" checked>
+                        <label>Enable audio</label>
+                    </div>
+                </div>
+
+                <div class="settings-field">
+                    <label>Audio Quality</label>
+                    <p class="field-description">
+                        The stream is downsampled on the Pi before it is sent, so a lower
+                        quality costs less bandwidth. Standard is 24kHz stereo.
+                    </p>
+                    <select id="audioQualityDropdown" class="ui dropdown settings-dropdown auto-save-setting" onchange="onAudioQualityChange()">
+                        <option value="low">Low - 16kHz stereo</option>
+                        <option value="standard" selected>Standard - 24kHz stereo</option>
+                        <option value="high">High - 48kHz stereo</option>
+                    </select>
+                </div>
+
+                <div class="settings-field">
+                    <label>Extra Gain</label>
+                    <p class="field-description">Boost the remote audio when the source is quiet.</p>
+                    <div id="extraGainSlider" class="ui labeled ticked slider"></div>
+                </div>
+            </div>
+
+            <!-- Keyboard & Mouse -->
+            <div class="settings-tab-content" data-tab="keyboard-mouse">
+                <h3 class="ui header">
+                    <i class="keyboard icon"></i>
+                    <div class="content">Keyboard &amp; Mouse</div>
+                </h3>
+                <div class="ui divider"></div>
+
+                <div class="settings-field">
+                    <label>Local Cursor</label>
+                    <p class="field-description">Show your own cursor on top of the remote screen.</p>
+                    <div class="ui toggle checkbox" id="showLocalCursorCheckbox">
+                        <input type="checkbox" id="chkSettingsShowLocalCursor" class="auto-save-setting" onchange="toggleShowLocalCursor()" checked>
+                        <label>Show local cursor</label>
+                    </div>
+                </div>
+
+                <div class="settings-field">
+                    <label>Invert Scroll Wheel</label>
+                    <p class="field-description">Reverse the scroll direction sent to the remote machine.</p>
+                    <div class="ui toggle checkbox" id="invertScrollwheelCheckbox">
+                        <input type="checkbox" id="chkSettingsInvertScrollwheel" class="auto-save-setting" onchange="toggleInvertScrollwheel()">
+                        <label>Invert scroll wheel</label>
+                    </div>
+                </div>
+
+                <div class="settings-field">
+                    <label>Relative Mouse Mode</label>
+                    <p class="field-description">
+                        Sends pointer deltas instead of absolute positions. Needed for games
+                        and for remote desktops that do their own pointer acceleration.
+                        Click the screen to capture the pointer, press Esc to release it.
+                    </p>
+                    <div class="ui toggle checkbox" id="relativeMouseModeCheckbox">
+                        <input type="checkbox" id="chkSettingsRelativeMouseMode" class="auto-save-setting" onchange="toggleRelativeMouseMode()">
+                        <label>Use relative mouse mode</label>
+                    </div>
+                </div>
+
+                <div class="settings-field">
+                    <label>Relative Mouse Sensitivity</label>
+                    <p class="field-description">Multiplier applied to pointer deltas in relative mode.</p>
+                    <div id="relativeMouseSensitivity" class="ui labeled ticked slider"></div>
+                </div>
+
+                <div class="settings-field">
+                    <label>Mouse Jiggler</label>
+                    <p class="field-description">
+                        Nudges the remote pointer after 30 seconds of inactivity so the
+                        machine does not go to sleep. This runs on the Pi, so it keeps
+                        working after you close this tab.
+                    </p>
+                    <div class="ui toggle checkbox" id="mouseJigglerCheckbox">
+                        <input type="checkbox" id="chkSettingsMouseJiggler" class="auto-save-setting" onchange="toggleMouseJiggler()">
+                        <label>Enable mouse jiggler</label>
+                    </div>
+                </div>
+
+                <div class="settings-field">
+                    <label>Confirm Before Paste</label>
+                    <p class="field-description">Ask before typing clipboard contents into the remote machine.</p>
+                    <div class="ui toggle checkbox" id="askOnPasteCheckbox">
+                        <input type="checkbox" id="chkSettingsAskOnPaste" class="auto-save-setting" onchange="toggleAskOnPaste()">
+                        <label>Ask on paste</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hotkeys -->
+            <div class="settings-tab-content" data-tab="hotkeys">
+                <h3 class="ui header">
+                    <i class="bolt icon"></i>
+                    <div class="content">Hotkeys</div>
+                </h3>
+                <div class="ui divider"></div>
+
+                <div class="settings-field">
+                    <label>Stacked Keys</label>
+                    <p class="field-description">
+                        Build a key combination one key at a time and send it in a single
+                        HID report. This is how combos your own OS swallows, like
+                        Ctrl + Alt + Del, reach the remote machine.
+                    </p>
+                    <div class="ui toggle checkbox" id="stackKeysEnabledCheckbox">
+                        <input type="checkbox" id="chkSettingsStackKeysEnabled" class="auto-save-setting" onchange="toggleStackKeysEnabled()" checked>
+                        <label>Enable stacked keys</label>
+                    </div>
+                </div>
+
+                <div class="settings-field">
+                    <label>Stacked Keys Toggle Key</label>
+                    <p class="field-description">Hold this key to start stacking, tap it again to send.</p>
+                    <select id="stackKeyToggleDropdown" class="ui dropdown settings-dropdown auto-save-setting" onchange="onStackKeyToggleChange()">
+                        <option value="ShiftRight">Right Shift</option>
+                        <option value="ControlRight">Right Ctrl</option>
+                        <option value="AltRight">Right Alt</option>
+                        <option value="MetaRight">Right Win / Cmd</option>
+                        <option value="ScrollLock">Scroll Lock</option>
+                        <option value="Pause">Pause / Break</option>
+                    </select>
+                </div>
+
+                <div class="settings-field">
+                    <label>Long Press Duration</label>
+                    <p class="field-description">
+                        How long the toggle key must be held before stacking starts.
+                        Set to 0 to enter stacking on a plain tap.
+                    </p>
+                    <div id="stackKeyLongPressSlider" class="ui labeled ticked slider"></div>
+                </div>
+            </div>
+
+            <!-- Device -->
+            <div class="settings-tab-content" data-tab="device">
+                <h3 class="ui header">
+                    <i class="microchip icon"></i>
+                    <div class="content">Device</div>
+                </h3>
+                <div class="ui divider"></div>
+
+                <div class="settings-field">
+                    <label>Detected Hardware</label>
+                    <p class="field-description">
+                        The device nodes the server picked at startup. To override them,
+                        restart the server with <code>-video</code>, <code>-audio</code>
+                        or <code>-tty</code>.
+                    </p>
+                    <table class="ui celled compact small table device-table">
+                        <tbody id="deviceTableBody">
+                            <tr><td colspan="3" style="text-align:center; color:#999;">Loading…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="settings-field">
+                    <label>Reset HID</label>
+                    <p class="field-description">
+                        Soft resets the CH9329 and releases every modifier key. Use this if
+                        the remote machine thinks Ctrl or Shift is stuck down.
+                    </p>
+                    <button class="ui basic button" onclick="resetRemoteHID()">
+                        <i class="redo icon"></i> Reset Remote HID
+                    </button>
+                </div>
+
+                <div class="settings-field">
+                    <label>Save Settings</label>
+                    <p class="field-description">
+                        Everything on this panel is stored in this browser only; the server
+                        keeps no per-user configuration.
+                    </p>
+                    <div class="ui toggle checkbox" id="saveSettingsCheckbox">
+                        <input type="checkbox" id="chkSettingsSaveSettings" onchange="toggleSaveSettings()" checked>
+                        <label>Remember settings in this browser</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- About -->
+            <div class="settings-tab-content" data-tab="about">
+                <h3 class="ui header">
+                    <i class="info circle icon"></i>
+                    <div class="content">About</div>
+                </h3>
+                <div class="ui divider"></div>
+
+                <div style="margin-bottom: 1.5em;">
+                    <p style="font-size: 1em; line-height: 1.6; color: #333;">
+                        <strong>DezKVM-Go IP KVM</strong> serves the HDMI capture card and the
+                        CH9329 HID bridge over the network, so any browser on the LAN can see
+                        and control the remote machine. Unlike the local USB mode, the browser
+                        never touches the hardware directly.
+                        <br><br>
+                        This is a prototype for internal use. Do not expose it to the internet.
+                    </p>
+                    <p>
+                        <small>Developed by <a href="https://github.com/tobychui" target="_blank" rel="noopener noreferrer">Toby Chui</a></small>
+                        <br>
+                        <small>Licensed under <a href="https://opensource.org/licenses/GPL-3.0" target="_blank" rel="noopener noreferrer">GPL-3.0 (Software)</a> / <a href="https://creativecommons.org/licenses/by-nc-nd/4.0/" target="_blank" rel="noopener noreferrer">CC BY-NC-ND (Hardware)</a></small>
+                    </p>
+                </div>
+
+                <b>Supported Hardware</b>
+                <div class="ui relaxed list">
+                    <div class="item">
+                        <div class="content"><strong>MS2109 / MS2109S / MS2130</strong> HDMI capture card (MJPEG video + USB audio)</div>
+                    </div>
+                    <div class="item">
+                        <div class="content"><strong>CH340 / CH341 to CH9329</strong> USB HID bridge (keyboard/mouse)</div>
+                    </div>
+                </div>
+
+                <div class="ui divider" style="margin-top: 2em; margin-bottom: 1.5em;"></div>
+                <a href="https://github.com/tobychui/DezKVM-Go" target="_blank" rel="noopener noreferrer">
+                    <i class="github icon"></i> GitHub Repository
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+/*
+    Settings persistence
+
+    The IP KVM has no server side user configuration, so every preference on
+    this panel lives in this browser's localStorage. SETTINGS_TEMPLATE is both
+    the default set and the whitelist: keys that are not in it are ignored when
+    loading, which keeps an old saved blob from resurrecting removed settings.
+*/
+const SETTINGS_TEMPLATE = {
+    enableAudio: true,
+    audioQuality: 'standard',
+    extraGain: 1.0,
+    showLocalCursor: true,
+    invertScrollwheel: false,
+    relativeMouseMode: false,
+    relativeMouseSensitivity: 1.0,
+    mouseJiggler: false,
+    ctrlCmdSwap: false,
+    askOnPaste: false,
+    saveToLocalStorage: true,
+    stackKeysEnabled: true,
+    stackKeyToggle: 'ShiftRight',
+    stackKeyLongPress: 1.0
+};
+
+const SETTINGS_KEY = 'dezkvm_ipkvm_settings';
+
+/* Slider widgets */
+function initalizeUIElements() {
+    $('#relativeMouseSensitivity').slider({
+        min: 0.5, max: 2, start: 1, step: 0.1,
+        onChange: function (value) {
+            if (typeof relativeMouseSensitivity !== 'undefined') {
+                relativeMouseSensitivity = value;
+            }
+            setTimeout(saveSettingsToLocalStorage, 50);
+        }
+    });
+
+    $('#extraGainSlider').slider({
+        min: 0.5, max: 3, start: 1, step: 0.25,
+        onChange: function (value) {
+            if (typeof setExtraGain === 'function') setExtraGain(value);
+            setTimeout(saveSettingsToLocalStorage, 50);
+        }
+    });
+
+    $('#stackKeyLongPressSlider').slider({
+        min: 0, max: 5, start: 1, step: 0.5,
+        onChange: function (value) {
+            if (typeof setStackKeyLongPress === 'function') setStackKeyLongPress(value);
+            setTimeout(saveSettingsToLocalStorage, 50);
+        }
+    });
+}
+initalizeUIElements();
+
+function toggleStackKeysEnabled() {
+    const chk = document.getElementById('chkSettingsStackKeysEnabled');
+    if (typeof setStackKeysEnabled === 'function') {
+        setStackKeysEnabled(chk ? chk.checked : true);
+    }
+}
+
+function onStackKeyToggleChange() {
+    const value = document.getElementById('stackKeyToggleDropdown')?.value;
+    if (value && typeof setStackKeyToggle === 'function') {
+        setStackKeyToggle(value);
+    }
+}
+
+/* Read the current state out of the UI and the client globals */
+function getCurrentSettings() {
+    const settings = {};
+    settings.enableAudio = document.getElementById('chkSettingsEnableAudio')?.checked ?? SETTINGS_TEMPLATE.enableAudio;
+    settings.audioQuality = document.getElementById('audioQualityDropdown')?.value ?? SETTINGS_TEMPLATE.audioQuality;
+    settings.extraGain = (typeof extraGain !== 'undefined') ? extraGain : SETTINGS_TEMPLATE.extraGain;
+    settings.showLocalCursor = document.getElementById('chkSettingsShowLocalCursor')?.checked ?? SETTINGS_TEMPLATE.showLocalCursor;
+    settings.invertScrollwheel = document.getElementById('chkSettingsInvertScrollwheel')?.checked ?? SETTINGS_TEMPLATE.invertScrollwheel;
+    settings.relativeMouseMode = document.getElementById('chkSettingsRelativeMouseMode')?.checked ?? SETTINGS_TEMPLATE.relativeMouseMode;
+    settings.relativeMouseSensitivity = (typeof relativeMouseSensitivity !== 'undefined') ? relativeMouseSensitivity : SETTINGS_TEMPLATE.relativeMouseSensitivity;
+    settings.mouseJiggler = document.getElementById('chkSettingsMouseJiggler')?.checked ?? SETTINGS_TEMPLATE.mouseJiggler;
+    settings.askOnPaste = document.getElementById('chkSettingsAskOnPaste')?.checked ?? SETTINGS_TEMPLATE.askOnPaste;
+    settings.ctrlCmdSwap = (typeof ctrlCmdSwapEnabled !== 'undefined') ? ctrlCmdSwapEnabled : SETTINGS_TEMPLATE.ctrlCmdSwap;
+    settings.stackKeysEnabled = document.getElementById('chkSettingsStackKeysEnabled')?.checked ?? SETTINGS_TEMPLATE.stackKeysEnabled;
+    settings.stackKeyToggle = (typeof stackKeyToggleCode !== 'undefined') ? stackKeyToggleCode : SETTINGS_TEMPLATE.stackKeyToggle;
+    settings.stackKeyLongPress = (typeof stackKeyLongPressMs !== 'undefined') ? (stackKeyLongPressMs / 1000) : SETTINGS_TEMPLATE.stackKeyLongPress;
+    settings.saveToLocalStorage = document.getElementById('chkSettingsSaveSettings')?.checked ?? SETTINGS_TEMPLATE.saveToLocalStorage;
+    return settings;
+}
+
+function saveSettingsToLocalStorage() {
+    const saveEnabled = document.getElementById('chkSettingsSaveSettings')?.checked ?? true;
+    if (!saveEnabled) return;
+    try {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(getCurrentSettings()));
+    } catch (e) {
+        console.error('Failed to save settings to localStorage:', e);
+    }
+}
+
+function loadSettingsFromLocalStorage() {
+    try {
+        const savedData = localStorage.getItem(SETTINGS_KEY);
+        if (!savedData) return null;
+        const parsedData = JSON.parse(savedData);
+
+        // Merge into the template so missing keys keep their defaults
+        const settings = { ...SETTINGS_TEMPLATE };
+        for (const key in SETTINGS_TEMPLATE) {
+            if (Object.prototype.hasOwnProperty.call(parsedData, key)) {
+                settings[key] = parsedData[key];
+            }
+        }
+        return settings;
+    } catch (e) {
+        console.error('Failed to load settings from localStorage:', e);
+        return null;
+    }
+}
+
+// setToggle mirrors a saved boolean into both the raw checkbox and the
+// Fomantic wrapper, then hands it to the client so the change takes effect.
+function setToggle(inputId, wrapperId, value, apply) {
+    const chk = document.getElementById(inputId);
+    if (!chk) return;
+    chk.checked = !!value;
+    $('#' + wrapperId).checkbox(value ? 'check' : 'uncheck');
+    if (typeof apply === 'function') apply(!!value);
+}
+
+function applySettingsToUI(settings) {
+    if (!settings) return;
+
+    setToggle('chkSettingsEnableAudio', 'enableAudioCheckbox', settings.enableAudio, () => {
+        if (typeof toggleEnableAudio === 'function') toggleEnableAudio();
+    });
+
+    const qualitySelect = document.getElementById('audioQualityDropdown');
+    if (qualitySelect && settings.audioQuality) {
+        qualitySelect.value = settings.audioQuality;
+        if (typeof setAudioQuality === 'function') setAudioQuality(settings.audioQuality);
+    }
+
+    if (typeof setExtraGain === 'function') setExtraGain(settings.extraGain);
+    $('#extraGainSlider').slider('set value', settings.extraGain);
+
+    setToggle('chkSettingsShowLocalCursor', 'showLocalCursorCheckbox', settings.showLocalCursor, () => {
+        if (typeof toggleShowLocalCursor === 'function') toggleShowLocalCursor();
+    });
+
+    setToggle('chkSettingsInvertScrollwheel', 'invertScrollwheelCheckbox', settings.invertScrollwheel, () => {
+        if (typeof toggleInvertScrollwheel === 'function') toggleInvertScrollwheel();
+    });
+
+    // Applied directly rather than through toggleRelativeMouseMode() so that
+    // restoring a saved setting does not raise a toast on every page load.
+    const relChk = document.getElementById('chkSettingsRelativeMouseMode');
+    if (relChk) {
+        relChk.checked = !!settings.relativeMouseMode;
+        $('#relativeMouseModeCheckbox').checkbox(settings.relativeMouseMode ? 'check' : 'uncheck');
+        if (typeof relativeMouseEnabled !== 'undefined' && typeof controller !== 'undefined') {
+            relativeMouseEnabled = !!settings.relativeMouseMode;
+            controller.Config.AbsoluteMode = !relativeMouseEnabled;
+        }
+    }
+
+    if (typeof relativeMouseSensitivity !== 'undefined') {
+        relativeMouseSensitivity = settings.relativeMouseSensitivity;
+    }
+    $('#relativeMouseSensitivity').slider('set value', settings.relativeMouseSensitivity);
+
+    setToggle('chkSettingsMouseJiggler', 'mouseJigglerCheckbox', settings.mouseJiggler, (enabled) => {
+        if (typeof window.setMouseJigglerEnabled === 'function') window.setMouseJigglerEnabled(enabled);
+    });
+
+    setToggle('chkSettingsAskOnPaste', 'askOnPasteCheckbox', settings.askOnPaste, () => {
+        if (typeof toggleAskOnPaste === 'function') toggleAskOnPaste();
+    });
+
+    // CTRL <-> CMD swap lives on a menu bar button, not a checkbox
+    if (typeof ctrlCmdSwapEnabled !== 'undefined') {
+        ctrlCmdSwapEnabled = !!settings.ctrlCmdSwap;
+        const swapBtn = document.getElementById('btnCtrlCmdSwap');
+        if (swapBtn) {
+            swapBtn.classList.toggle('green', ctrlCmdSwapEnabled);
+            swapBtn.classList.toggle('grey', !ctrlCmdSwapEnabled);
+        }
+    }
+
+    setToggle('chkSettingsStackKeysEnabled', 'stackKeysEnabledCheckbox', settings.stackKeysEnabled, (enabled) => {
+        if (typeof setStackKeysEnabled === 'function') setStackKeysEnabled(enabled);
+    });
+
+    if (typeof setStackKeyToggle === 'function') setStackKeyToggle(settings.stackKeyToggle);
+    const toggleSelect = document.getElementById('stackKeyToggleDropdown');
+    if (toggleSelect) toggleSelect.value = settings.stackKeyToggle;
+
+    if (typeof setStackKeyLongPress === 'function') setStackKeyLongPress(settings.stackKeyLongPress);
+    $('#stackKeyLongPressSlider').slider('set value', settings.stackKeyLongPress);
+
+    setToggle('chkSettingsSaveSettings', 'saveSettingsCheckbox', settings.saveToLocalStorage, null);
+}
+
+function clearSettingsFromLocalStorage() {
+    try {
+        localStorage.removeItem(SETTINGS_KEY);
+        $('body').toast({ message: '<i class="trash icon"></i> Settings cleared from browser storage', class: 'info' });
+    } catch (e) {
+        console.error('Failed to clear settings from localStorage:', e);
+    }
+}
+
+function toggleSaveSettings() {
+    const enabled = document.getElementById('chkSettingsSaveSettings')?.checked ?? true;
+    if (enabled) {
+        saveSettingsToLocalStorage();
+        $('body').toast({ message: '<i class="save icon"></i> Settings will be saved to browser storage', class: 'success' });
+    } else {
+        clearSettingsFromLocalStorage();
+    }
+}
+
+// Anything tagged .auto-save-setting persists itself on change
+function setupAutoSave() {
+    document.querySelectorAll('.auto-save-setting').forEach(element => {
+        element.addEventListener('change', () => {
+            // Small delay so the onchange handler runs before we read the state
+            setTimeout(saveSettingsToLocalStorage, 50);
+        });
+    });
+}
+
+/* Initialize Fomantic UI checkboxes */
+if (typeof $ !== 'undefined' && $.fn.checkbox) {
+    $('#enableAudioCheckbox').checkbox();
+    $('#showLocalCursorCheckbox').checkbox();
+    $('#invertScrollwheelCheckbox').checkbox();
+    $('#relativeMouseModeCheckbox').checkbox();
+    $('#mouseJigglerCheckbox').checkbox();
+    $('#askOnPasteCheckbox').checkbox();
+    $('#saveSettingsCheckbox').checkbox();
+    $('#stackKeysEnabledCheckbox').checkbox();
+}
+
+/* Tab switching */
+$(".settings-category-menu .item").on("click", function () {
+    $(".settings-category-menu .item").removeClass("active");
+    $(this).addClass("active");
+    const tab = $(this).data("tab");
+    $(".settings-tab-content").removeClass("active");
+    $(".settings-tab-content[data-tab='" + tab + "']").addClass("active");
+});
+
+/* Populate the server-backed panels once the client has its first status */
+if (typeof refreshResolutionSelector === 'function') {
+    refreshResolutionSelector();
+}
+
+/* Load saved settings on page load */
+setTimeout(() => {
+    const savedSettings = loadSettingsFromLocalStorage();
+    if (savedSettings && savedSettings.saveToLocalStorage) {
+        applySettingsToUI(savedSettings);
+    }
+    setupAutoSave();
+}, 100);
+</script>

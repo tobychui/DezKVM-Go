@@ -1,0 +1,49 @@
+# DezKVM-Go IP KVM - systemd unit
+#
+# Install:
+#   sudo cp dezkvm-ipkvm.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now dezkvm-ipkvm
+#
+# Adjust User, WorkingDirectory and ExecStart to match where you put the
+# binary. See README.md for the full walkthrough.
+
+[Unit]
+Description=DezKVM-Go IP KVM
+Documentation=https://github.com/tobychui/DezKVM-Go
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# The service does not need root: group membership is what grants access to
+# the three device nodes (video -> video, /dev/snd -> audio, ttyUSB -> dialout).
+User=pi
+Group=pi
+SupplementaryGroups=video audio dialout plugdev
+
+WorkingDirectory=/opt/dezkvm-ipkvm
+ExecStart=/opt/dezkvm-ipkvm/dezkvm-ipkvm -port :8080
+
+# The USB devices are enumerated at startup, so if the board is still settling
+# after a cold boot the first attempt can fail. Retry rather than give up.
+Restart=on-failure
+RestartSec=5
+
+# udev can take a moment to create /dev/video* and /dev/ttyUSB* on a cold boot
+ExecStartPre=/bin/sleep 5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dezkvm-ipkvm
+
+# Modest hardening. The service only needs its own directory and the device
+# nodes; PrivateDevices is deliberately NOT set, as that would hide them.
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
