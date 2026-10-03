@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <meta name="description" content="DezKVM-Go | IP KVM Mode">
+        <meta name="author" content="dezukvm.aroz.org">
+        <link rel="icon" type="image/png" href="favicon.png">
+        <title>DezKVM-Go | IP KVM</title>
+        <!-- jQuery -->
+        <script src="scripts/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+        <!-- Fomantic UI -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fomantic-ui/2.9.4/semantic.min.css" integrity="sha512-ySrYzxj+EI1e9xj/kRYqeDL5l1wW0IWY8pzHNTIZ+vc1D3Z14UDNPbwup4yOUmlRemYjgUXsUZ/xvCQU2ThEAw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/fomantic-ui/2.9.4/semantic.min.js" integrity="sha512-Y/wIVu+S+XJsDL7I+nL50kAVFLMqSdvuLqF2vMoRqiMkmvcqFjEpEgeu6Rx8tpZXKp77J8OUpMKy0m3jLYhbbw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <!-- Custom Styles -->
+        <link rel="stylesheet" href="main.css">
+    </head>
+<body>
+    <div id="menu">
+        <div style="margin-right: 10px;">
+            <img src="img/font_logo.svg" width="120" style="margin-top:0px;">
+        </div>
+
+        <!-- Connection indicators. In IP KVM mode there is nothing to connect
+             by hand: the page opens the three links to the Pi on load. -->
+        <span class="conn-status" data-conn="video" title="video"><span class="dot"></span>Video</span>
+        <span class="conn-status" data-conn="audio" title="audio"><span class="dot"></span>Audio</span>
+        <span class="conn-status" data-conn="hid" title="hid"><span class="dot"></span>HID</span>
+        <span id="streamInfoLabel" class="stream-info" title="Current capture format">–</span>
+
+        <!-- Paste Box -->
+        <button id="showPasteBox" class="ui mini basic icon button" title="Paste to Remote" style="margin-left: 10px;"><i class="paste icon"></i></button>
+        <!-- Quick Access Buttons -->
+        <button id="btnQuickAccess" class="ui mini basic icon button" title="Quick Access Hotkeys"><i class="bolt icon"></i></button>
+        <!-- Screenshots -->
+        <button id="screenshotBtn" class="ui mini basic icon button" title="Take Screenshot" onclick="takeScreenshot()"><i class="camera icon"></i></button>
+        <!-- On-screen Keyboard -->
+        <button id="btnOnscreenKeyboard" class="ui mini basic icon button" title="Toggle On-Screen Keyboard"><i class="keyboard outline icon"></i></button>
+        <!-- Fullscreen -->
+        <button id="fullscreenBtn" class="ui mini basic icon button" title="Fullscreen" onclick="toggleFullScreen()"><i class="expand icon"></i></button>
+        <!-- Remap CTRL to CMD and CMD to CTRL -->
+        <button id="btnCtrlCmdSwap" class="ui mini grey button" title="Swap Ctrl and Cmd keys" onclick="toggleCtrlCmdSwap()">CTRL ↔ CMD</button>
+
+        <!-- Settings Button -->
+        <button id="settingsBtn" class="ui mini basic button" style="margin-left: auto;" onclick="toggleSettingsOverlay()">
+            <i class="blue cog icon"></i> Settings
+        </button>
+
+        <!-- Hide menu button -->
+        <button id="hideMenuBtn" class="ui mini icon button"><i class="chevron up icon"></i></button>
+    </div>
+
+    <!-- The MJPEG stream. /api/video/stream is a multipart response that never
+         completes, so this <img> keeps swapping frames for the whole session. -->
+    <img id="video" alt="">
+    <div id="touchscreen"></div>
+
+    <!-- Stacked Keys Display -->
+    <div id="stackedKeysDisplay"></div>
+
+    <!-- Stacked Keys long-press trigger indicator -->
+    <div id="stackTriggerIndicator"><div class="fill"></div></div>
+
+    <!-- Shown while the video stream is down or reconnecting -->
+    <div id="streamOverlay">
+        <i class="huge grey video icon"></i>
+        <div class="overlay-title">Connecting to video stream…</div>
+        <div class="overlay-detail"></div>
+    </div>
+
+    <!-- No Signal Overlay -->
+    <div id="noSignalOverlay">
+        <span><i class="ui yellow exclamation triangle icon"></i> HDMI capture card connected but no video stream is received</span>
+    </div>
+
+    <!-- Paste Box Modal -->
+    <div id="pasteBox" class="paste-box-container" style="display: none;"></div>
+
+    <!-- On-Screen Keyboard -->
+    <div id="onscreenKeyboard" class="onscreen-keyboard" style="display: none;"></div>
+
+    <!-- Quick Access Hotkeys -->
+    <div id="quickAccess" class="quick-access-panel" style="display: none;"></div>
+
+    <!-- Settings Overlay -->
+    <div id="settings-overlay"></div>
+
+    <!-- Only the client core is loaded here. paste-box.js, onscreen-keyboard.js
+         and quick-access.js are pulled in by their own HTML fragments below,
+         because each of them binds to elements that fragment provides. Loading
+         them here as well would run every one of them twice: the first copy
+         would bind to elements that do not exist yet, and the second copy would
+         die on a `let` redeclaration before it could bind anything. -->
+    <script src="ipkvm.js"></script>
+    <script>
+        const menu = document.getElementById('menu');
+        const hideMenuBtn = document.getElementById('hideMenuBtn');
+
+        // Create a show menu button
+        const showMenuBtn = document.createElement('button');
+        showMenuBtn.id = 'showMenuBtn';
+        showMenuBtn.className = 'ui mini icon button';
+        showMenuBtn.style.position = 'fixed';
+        showMenuBtn.style.top = '0.5em';
+        showMenuBtn.style.right = '0.5em';
+        showMenuBtn.style.zIndex = '1001';
+        showMenuBtn.style.display = 'none';
+        showMenuBtn.innerHTML = '<i class="chevron down icon"></i>';
+        document.body.appendChild(showMenuBtn);
+
+        hideMenuBtn.addEventListener('click', () => {
+            menu.style.display = 'none';
+            showMenuBtn.style.display = 'block';
+        });
+
+        showMenuBtn.addEventListener('click', () => {
+            menu.style.display = 'flex';
+            showMenuBtn.style.display = 'none';
+        });
+
+        // Initialize Fomantic UI widgets
+        $('.ui.dropdown').dropdown({ action: 'nothing' });
+        $('.ui.checkbox').checkbox();
+
+        // Load the shared UI fragments
+        $('#onscreenKeyboard').load('onscreen-keyboard.html');
+        $('#pasteBox').load('paste-box.html');
+        $('#quickAccess').load('quick-access.html');
+        $('#settings-overlay').load('settings.html');
+
+        // Quick Access toggle
+        document.getElementById('btnQuickAccess').addEventListener('click', function () {
+            if (typeof toggleQuickAccess === 'function') toggleQuickAccess();
+        });
+    </script>
+</body>
+</html>
