@@ -23,11 +23,13 @@ If you are looking for an IP-KVM solution, take a look at the [DezKVM](https://g
   - Take Screenshots
   - Screen Recorder (with support of partial screen record)
   - Key Stacking (similar to Pi-KVM Magic-Key)
+  - Linux Terminal Mode (real-time OCR on remote terminal and convert to selectable text in browser)
 - Advanced Settings
   - Invert mouse scroll wheel direction (for Windows / MacOS cross control)
   - Absolute / Relative mode for mouse
   - Mouse Jiggler
   - WebGL based Image Sharpening feature (for Terminal / text based sessions)
+  - Terminal Mode: reconstructs a remote text console from the video feed as a crisp, selectable text terminal (exact glyph matching, ported from kvmterm)
   - Extra gain (when remote volume is too loud / quiet)
   - Support both 9600 & 115200 configuration of CH9329
   
@@ -79,6 +81,8 @@ go build
 ![](img/5.jpg)
 
 ![image-20260218134153419](img/README/image-20260218134153419.png)
+
+![image-20261012211254389](img/README/image-20261012211254389.png)
 
 [See more screenshots](https://github.com/tobychui/DezKVM-Go/wiki/Screenshots)
 

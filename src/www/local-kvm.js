@@ -2525,6 +2525,11 @@ function toggleImageSharpening() {
     const chk = document.getElementById('chkSettingsImageSharpening');
     imageSharpeningEnabled = chk ? chk.checked : false;
     if (imageSharpeningEnabled) {
+        // Image sharpening and terminal mode are mutually exclusive
+        if (typeof kvmTermEnabled !== 'undefined' && kvmTermEnabled) {
+            setKvmTermEnabled(false, true);
+            $('body').toast({ message: '<i class="terminal icon"></i> Terminal mode disabled (not compatible with image sharpening)' });
+        }
         if (typeof window.startSharpeningPipeline === 'function') window.startSharpeningPipeline();
         $('body').toast({ message: '<i class="magic icon"></i> Image sharpening enabled' });
     } else {

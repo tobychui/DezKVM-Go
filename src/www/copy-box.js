@@ -189,6 +189,13 @@ function showCopyBoxLangPopup(left, top) {
     popup.style.left = left + 'px';
     popup.style.top  = top + 'px';
     popup.style.display = 'block';
+
+    // Default to exact terminal glyph matching while terminal mode is active
+    const langSelect = document.getElementById('copyBoxLangSelect');
+    if (langSelect && typeof kvmTermEnabled !== 'undefined' && kvmTermEnabled &&
+        typeof kvmTermHasUsableCalibration === 'function' && kvmTermHasUsableCalibration()) {
+        langSelect.value = 'terminal';
+    }
     cbLog('Language popup displayed at', left, top);
 }
 
@@ -210,9 +217,8 @@ function closeCopyBoxResult() {
     if (result) result.style.display = 'none';
 }
 
-/* ── Capture the selected rectangle from the video ── */
-function captureSelectedArea() {
-    cbLog('captureSelectedArea – copyBoxRect:', copyBoxRect);
+/* ── Map the selected rectangle to video pixel coordinates ── */
+function getSelectedVideoArea() {
     const video = document.getElementById('video');
     if (!video || !video.srcObject) { cbLog('No video or srcObject'); return null; }
 
@@ -238,11 +244,14 @@ function captureSelectedArea() {
         offsetY = (videoRect.height - displayH) / 2;
     }
 
-    // Convert selection coords (viewport-relative) to video-pixel coords
-    const selX = (copyBoxRect.x - videoRect.left - offsetX) / displayW * vidW;
-    const selY = (copyBoxRect.y - videoRect.top  - offsetY) / displayH * vidH;
-    const selW = copyBoxRect.w / displayW * vidW;
-    const selH = copyBoxRect.h / displayH * vidH;
+    // Convert selection coords (viewport-relative) to video-pixel coords.
+    // Terminal mode may show the screen zoomed, so map through its layout.
+    const termRect = (typeof kvmTermClientToVideoRect === 'function')
+        ? kvmTermClientToVideoRect(copyBoxRect.x, copyBoxRect.y, copyBoxRect.w, copyBoxRect.h) : null;
+    const selX = termRect ? termRect.x : (copyBoxRect.x - videoRect.left - offsetX) / displayW * vidW;
+    const selY = termRect ? termRect.y : (copyBoxRect.y - videoRect.top  - offsetY) / displayH * vidH;
+    const selW = termRect ? termRect.w : copyBoxRect.w / displayW * vidW;
+    const selH = termRect ? termRect.h : copyBoxRect.h / displayH * vidH;
 
     // Clamp
     const sx = Math.max(0, Math.round(selX));
@@ -251,6 +260,16 @@ function captureSelectedArea() {
     const sh = Math.min(vidH - sy, Math.round(selH));
     cbLog('Capture area – video coords:', { sx, sy, sw, sh }, '  video size:', vidW, 'x', vidH);
     if (sw <= 0 || sh <= 0) { cbLog('Capture area is empty after clamping'); return null; }
+    return { sx, sy, sw, sh };
+}
+
+/* ── Capture the selected rectangle from the video ── */
+function captureSelectedArea() {
+    cbLog('captureSelectedArea – copyBoxRect:', copyBoxRect);
+    const area = getSelectedVideoArea();
+    if (!area) return null;
+    const { sx, sy, sw, sh } = area;
+    const video = document.getElementById('video');
 
     // Draw the cropped region to a temporary canvas
     const canvas = document.createElement('canvas');
@@ -264,6 +283,10 @@ function captureSelectedArea() {
 /* ── OCR with Tesseract.js ── */
 async function performOCR() {
     cbLog('performOCR called');
+    if (document.getElementById('copyBoxLangSelect').value === 'terminal') {
+        performTerminalCopy();
+        return;
+    }
     const croppedCanvas = captureSelectedArea();
     if (!croppedCanvas) {
         $('body').toast({ message: '<i class="warning icon"></i> Could not capture the selected area', class: 'warning' });
@@ -313,6 +336,30 @@ async function performOCR() {
         statusDiv.style.display = 'none';
         textarea.value = '';
         $('body').toast({ message: '<i class="red exclamation icon"></i> OCR failed: ' + err.message, class: 'error' });
+    }
+}
+
+/* ── Exact text via terminal mode glyph matching (kvm-term.js) ── */
+function performTerminalCopy() {
+    const area = getSelectedVideoArea();
+    if (!area) {
+        $('body').toast({ message: '<i class="warning icon"></i> Could not capture the selected area', class: 'warning' });
+        return;
+    }
+    try {
+        if (typeof kvmTermRecognizeRect !== 'function') throw new Error('Terminal mode is not available');
+        copyBoxRawText = kvmTermRecognizeRect(area.sx, area.sy, area.sw, area.sh);
+    } catch (err) {
+        $('body').toast({ message: '<i class="red exclamation icon"></i> ' + err.message, class: 'error' });
+        return;
+    }
+    const textarea = document.getElementById('copyBoxTextarea');
+    const trimCheckbox = document.getElementById('copyBoxTrimSpaces');
+    textarea.value = (trimCheckbox && trimCheckbox.checked) ? copyBoxRawText.replace(/ /g, '') : copyBoxRawText;
+    document.getElementById('copyBoxStatus').style.display = 'none';
+    document.getElementById('copyBoxResult').style.display = 'flex';
+    if (!copyBoxRawText.trim()) {
+        $('body').toast({ message: '<i class="blue info circle icon"></i> No text detected in the selected area' });
     }
 }
 

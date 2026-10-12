@@ -618,3 +618,117 @@ body {
     background: #ffffff;
     border-radius: 6px;
 }
+
+/* Terminal Mode overlay (kvm-term.js) */
+#kvmTermOverlay {
+    --kt-bg: #000;
+    --kt-fg: #d8d8d8;
+    position: fixed;
+    display: none;
+    z-index: 600;
+    overflow: hidden;
+    background: var(--kt-bg);
+}
+
+#kvmTermOverlay.kt-light {
+    --kt-bg: #fff;
+    --kt-fg: #1a1a1a;
+}
+
+/* Not rendering (uncalibrated / calibrating): let the video show through */
+#kvmTermOverlay.kt-idle {
+    background: transparent;
+    pointer-events: none;
+}
+
+#kvmTermOverlay.kt-idle .kvm-term-screen {
+    display: none;
+}
+
+.kvm-term-screen {
+    position: absolute;
+    margin: 0;
+    color: var(--kt-fg);
+    white-space: pre;
+    user-select: text;
+    cursor: text;
+    font-kerning: none;
+    font-variant-ligatures: none;
+}
+
+.kvm-term-row {
+    height: var(--kt-row-h, 16px);
+    line-height: var(--kt-row-h, 16px);
+    overflow: hidden;
+    white-space: pre;
+}
+
+.kvm-term-row .kt-inv {
+    background: var(--kt-fg);
+    color: var(--kt-bg);
+}
+
+.kvm-term-message {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: calc(100% - 32px);
+    max-width: 520px;
+    padding: 1.2em 1.4em;
+    border-radius: 8px;
+    background: rgba(20, 20, 20, 0.92);
+    color: #eee;
+    line-height: 1.5;
+    pointer-events: auto;
+}
+
+.kvm-term-message-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 1em;
+}
+
+.kvm-term-progress {
+    display: flex;
+    align-items: center;
+    gap: 0.8em;
+}
+
+.kvm-term-hint {
+    margin-top: 0.6em;
+    font-size: 0.9em;
+    color: #aaa;
+}
+
+.kvm-term-toolbar {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    background: rgba(30, 30, 30, 0.85);
+    color: #ddd;
+    font-size: 12px;
+    opacity: 0.3;
+    transition: opacity 0.2s;
+    pointer-events: auto;
+}
+
+.kvm-term-toolbar:hover {
+    opacity: 1;
+}
+
+.kvm-term-toolbar #kvmTermStatus {
+    margin: 0 4px;
+    white-space: nowrap;
+}
+
+.kvm-term-toolbar .ui.button {
+    margin: 0;
+}
