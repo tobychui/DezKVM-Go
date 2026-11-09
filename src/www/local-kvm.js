@@ -425,10 +425,11 @@ class HIDController {
         await this.keyboardSendKeyCombinations();
     }
 
-    // Send a keyboard press by JavaScript keycode
-    async SendKeyboardPress(keycode) {
-        const hid = this.javaScriptKeycodeToHIDOpcode(keycode);
-        if (hid === 0x00) throw new Error("Unsupported keycode: " + keycode);
+    // AI-assisted addition: shared HID-opcode press/release state management, extracted so
+    // both the legacy US-layout-only keycode path and the new layout-independent code-based
+    // path (see codeToHIDOpcode()/SendKeyboardPressByCode() below) reuse the exact same
+    // hidState.KeyboardButtons bookkeeping instead of duplicating it.
+    async _pressHidOpcode(hid, label) {
         // Already pressed?
         for (let i = 0; i < 6; i++) {
             if (this.hidState.KeyboardButtons[i] === hid) return;
@@ -441,13 +442,10 @@ class HIDController {
                 return;
             }
         }
-        throw new Error("No space left in keyboard state to press key: " + keycode);
+        throw new Error("No space left in keyboard state to press key: " + label);
     }
 
-    // Send a keyboard release by JavaScript keycode
-    async SendKeyboardRelease(keycode) {
-        const hid = this.javaScriptKeycodeToHIDOpcode(keycode);
-        if (hid === 0x00) throw new Error("Unsupported keycode: " + keycode);
+    async _releaseHidOpcode(hid) {
         for (let i = 0; i < 6; i++) {
             if (this.hidState.KeyboardButtons[i] === hid) {
                 this.hidState.KeyboardButtons[i] = 0x00;
@@ -456,6 +454,42 @@ class HIDController {
             }
         }
         // Not pressed, do nothing
+    }
+
+    // Send a keyboard press by legacy JavaScript keycode (US-layout-position based). Used
+    // by canned/synthetic key sequences (quick access buttons, paste-to-remote, on-screen
+    // keyboard) - NOT by live physical keydown forwarding, see SendKeyboardPressByCode().
+    async SendKeyboardPress(keycode) {
+        const hid = this.javaScriptKeycodeToHIDOpcode(keycode);
+        if (hid === 0x00) throw new Error("Unsupported keycode: " + keycode);
+        await this._pressHidOpcode(hid, keycode);
+    }
+
+    // Send a keyboard release by legacy JavaScript keycode - see SendKeyboardPress() above.
+    async SendKeyboardRelease(keycode) {
+        const hid = this.javaScriptKeycodeToHIDOpcode(keycode);
+        if (hid === 0x00) throw new Error("Unsupported keycode: " + keycode);
+        await this._releaseHidOpcode(hid);
+    }
+
+    // AI-assisted addition: press/release by KeyboardEvent.code - the standards-based,
+    // physical-position, layout-independent key identifier. This is what live physical
+    // keydown/keyup forwarding must use instead of the legacy keycode path above: keyCode's
+    // value for punctuation is unreliable across non-US layouts (e.g. German), and the
+    // legacy table only recognizes US-layout punctuation at all, so non-US keys either
+    // mapped to the wrong physical position or were silently dropped. `code` plus the
+    // standard USB HID Usage Table mapping in codeToHIDOpcode() below fixes this for any
+    // keyboard layout on either end, since physical position never depends on layout.
+    async SendKeyboardPressByCode(code) {
+        const hid = this.codeToHIDOpcode(code);
+        if (hid === 0x00) throw new Error("Unsupported code: " + code);
+        await this._pressHidOpcode(hid, code);
+    }
+
+    async SendKeyboardReleaseByCode(code) {
+        const hid = this.codeToHIDOpcode(code);
+        if (hid === 0x00) throw new Error("Unsupported code: " + code);
+        await this._releaseHidOpcode(hid);
     }
 
     // Send the current key combinations (modifiers + up to 6 keys)
@@ -539,6 +573,76 @@ class HIDController {
             case 220: return 0x31; // backslash
             case 221: return 0x30; // ']'
             case 222: return 0x34; // '\''
+            default: return 0x00;
+        }
+    }
+
+    // AI-assisted addition: KeyboardEvent.code -> USB HID Keyboard/Keypad Usage Table
+    // (Page 0x07) opcode. Unlike javaScriptKeycodeToHIDOpcode() above, this mapping is
+    // exactly the same on every keyboard layout, because both `code` and the HID usage
+    // table are defined by physical key position, not by the character a layout produces.
+    codeToHIDOpcode(code) {
+        // Letters
+        if (/^Key[A-Z]$/.test(code)) return (code.charCodeAt(3) - 65) + 0x04;
+        // Digit1-Digit9, Digit0
+        if (/^Digit[0-9]$/.test(code)) {
+            const d = code.charCodeAt(5) - 48; // '0'-'9' -> 0-9
+            return d === 0 ? 0x27 : 0x1E + (d - 1);
+        }
+        // Numpad1-Numpad9, Numpad0
+        if (/^Numpad[0-9]$/.test(code)) {
+            const d = code.charCodeAt(6) - 48;
+            return d === 0 ? 0x62 : 0x59 + (d - 1);
+        }
+        // F1-F12
+        if (/^F([1-9]|1[0-2])$/.test(code)) {
+            return 0x3A + (parseInt(code.slice(1), 10) - 1);
+        }
+        switch (code) {
+            case 'Enter': return 0x28;
+            case 'Escape': return 0x29;
+            case 'Backspace': return 0x2A;
+            case 'Tab': return 0x2B;
+            case 'Space': return 0x2C;
+            case 'Minus': return 0x2D;          // '-' '_'
+            case 'Equal': return 0x2E;           // '=' '+'
+            case 'BracketLeft': return 0x2F;     // '[' '{'
+            case 'BracketRight': return 0x30;    // ']' '}'
+            case 'Backslash': return 0x31;       // '\' '|'
+            case 'Semicolon': return 0x33;       // ';' ':'
+            case 'Quote': return 0x34;           // ''' '"'
+            case 'Backquote': return 0x35;       // '`' '~'
+            case 'Comma': return 0x36;           // ',' '<'
+            case 'Period': return 0x37;          // '.' '>'
+            case 'Slash': return 0x38;           // '/' '?'
+            case 'CapsLock': return 0x39;
+            case 'PrintScreen': return 0x46;
+            case 'ScrollLock': return 0x47;
+            case 'Pause': return 0x48;
+            case 'Insert': return 0x49;
+            case 'Home': return 0x4A;
+            case 'PageUp': return 0x4B;
+            case 'Delete': return 0x4C;
+            case 'End': return 0x4D;
+            case 'PageDown': return 0x4E;
+            case 'ArrowRight': return 0x4F;
+            case 'ArrowLeft': return 0x50;
+            case 'ArrowDown': return 0x51;
+            case 'ArrowUp': return 0x52;
+            case 'NumLock': return 0x53;
+            case 'NumpadDivide': return 0x54;
+            case 'NumpadMultiply': return 0x55;
+            case 'NumpadSubtract': return 0x56;
+            case 'NumpadAdd': return 0x57;
+            case 'NumpadEnter': return 0x58;
+            case 'NumpadDecimal': return 0x63;
+            // ISO extra key between Left Shift and Z, present on German/European keyboards
+            // ('<' '>' '|') - has no ANSI/US equivalent, was silently dropped before.
+            case 'IntlBackslash': return 0x64;
+            case 'ContextMenu': return 0x65;     // Menu key
+            case 'NumpadEqual': return 0x67;
+            case 'IntlRo': return 0x87;          // JIS keyboards
+            case 'IntlYen': return 0x89;         // JIS keyboards
             default: return 0x00;
         }
     }
@@ -752,6 +856,7 @@ function addStackedKey(e) {
     }
     stackedKeys.push({
         keyCode: e.keyCode,
+        code: e.code, // AI-assisted addition: layout-independent, see sendStackedKeys()
         location: e.location,
         isModifier: isModifier,
         label: formatStackKeyLabel(e),
@@ -774,12 +879,15 @@ async function sendStackedKeys(keys) {
             await controller.SetModifierKey(swapCtrlCmd(m.keyCode), m.location === KeyboardEvent.DOM_KEY_LOCATION_RIGHT);
         }
         for (const r of regular) {
-            await controller.SendKeyboardPress(r.keyCode);
+            // AI-assisted fix: use the layout-independent code (see codeToHIDOpcode()),
+            // same reasoning as the main keydown/keyup handler - keeps Stacked Keys working
+            // for non-US layouts instead of only the live-typing path being fixed.
+            await controller.SendKeyboardPressByCode(r.code);
         }
         // Brief hold so the host registers the combination
         await new Promise(res => setTimeout(res, 50));
         for (const r of regular) {
-            await controller.SendKeyboardRelease(r.keyCode);
+            await controller.SendKeyboardReleaseByCode(r.code);
         }
         for (const m of mods) {
             await controller.UnsetModifierKey(swapCtrlCmd(m.keyCode), m.location === KeyboardEvent.DOM_KEY_LOCATION_RIGHT);
@@ -799,8 +907,9 @@ async function forwardToggleKeyTap(e) {
             await controller.SetModifierKey(swapCtrlCmd(e.keyCode), isRight);
             await controller.UnsetModifierKey(swapCtrlCmd(e.keyCode), isRight);
         } else {
-            await controller.SendKeyboardPress(e.keyCode);
-            await controller.SendKeyboardRelease(e.keyCode);
+            // AI-assisted fix: layout-independent, see codeToHIDOpcode().
+            await controller.SendKeyboardPressByCode(e.code);
+            await controller.SendKeyboardReleaseByCode(e.code);
         }
     } catch (err) {
         // Ignore unsupported keys
@@ -987,7 +1096,11 @@ window.addEventListener('keydown', async (e) => {
         if (e.key === 'Control' || e.key === 'Shift' || e.key === 'Alt' || e.key === 'Meta') {
             await controller.SetModifierKey(swapCtrlCmd(e.keyCode), e.location === KeyboardEvent.DOM_KEY_LOCATION_RIGHT);
         } else {
-            await controller.SendKeyboardPress(e.keyCode);
+            // AI-assisted fix: use e.code (physical-position, layout-independent) instead
+            // of the legacy e.keyCode, which only recognizes US-layout punctuation and
+            // silently dropped/misidentified non-US keys (e.g. German ß, ü, ö, ä, the ISO
+            // extra key). See codeToHIDOpcode() in the HIDController class above.
+            await controller.SendKeyboardPressByCode(e.code);
         }
        
     } catch (err) {
@@ -1011,7 +1124,8 @@ window.addEventListener('keyup', async (e) => {
         if (e.key === 'Control' || e.key === 'Shift' || e.key === 'Alt' || e.key === 'Meta') {
             await controller.UnsetModifierKey(swapCtrlCmd(e.keyCode), e.location === KeyboardEvent.DOM_KEY_LOCATION_RIGHT);
         } else {
-            await controller.SendKeyboardRelease(e.keyCode);
+            // AI-assisted fix: see the matching keydown handler above.
+            await controller.SendKeyboardReleaseByCode(e.code);
         }
         e.preventDefault();
     } catch (err) {
