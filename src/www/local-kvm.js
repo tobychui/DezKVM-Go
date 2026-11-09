@@ -1095,6 +1095,20 @@ window.addEventListener('keydown', async (e) => {
         // Modifier keys
         if (e.key === 'Control' || e.key === 'Shift' || e.key === 'Alt' || e.key === 'Meta') {
             await controller.SetModifierKey(swapCtrlCmd(e.keyCode), e.location === KeyboardEvent.DOM_KEY_LOCATION_RIGHT);
+        } else if (e.key === 'AltGraph') {
+            // AI-assisted fix: AltGr fires e.key === 'AltGraph', not 'Alt', so it never
+            // matched the modifier check above and was silently dropped as an unsupported
+            // code (breaking e.g. AltGr+Q for '@' on German layouts). On Windows, AltGr also
+            // triggers a phantom Left-Ctrl keydown just before this event (a known browser/OS
+            // quirk) which *does* match the check above and gets forwarded - so we
+            // retroactively clear that phantom Ctrl bit here rather than trying to
+            // predict/suppress it on the earlier Control keydown (unset is idempotent -
+            // harmless no-op if no phantom Ctrl was actually sent). Hardcode keycode 18 (Alt)
+            // instead of e.keyCode/swapCtrlCmd, since e.keyCode for AltGraph is inconsistent
+            // across browsers (e.g. reported as 225 in Firefox), which would otherwise throw
+            // "Not a modifier key" and surface a bogus error toast.
+            await controller.UnsetModifierKey(17, false);
+            await controller.SetModifierKey(18, true);
         } else {
             // AI-assisted fix: use e.code (physical-position, layout-independent) instead
             // of the legacy e.keyCode, which only recognizes US-layout punctuation and
@@ -1123,6 +1137,11 @@ window.addEventListener('keyup', async (e) => {
     try {
         if (e.key === 'Control' || e.key === 'Shift' || e.key === 'Alt' || e.key === 'Meta') {
             await controller.UnsetModifierKey(swapCtrlCmd(e.keyCode), e.location === KeyboardEvent.DOM_KEY_LOCATION_RIGHT);
+        } else if (e.key === 'AltGraph') {
+            // AI-assisted fix: see the matching keydown handler above. No phantom-Ctrl
+            // handling needed here - its keyup (if any) hits the 'Control' branch above and
+            // clears a bit that's already unset, a harmless no-op.
+            await controller.UnsetModifierKey(18, true);
         } else {
             // AI-assisted fix: see the matching keydown handler above.
             await controller.SendKeyboardReleaseByCode(e.code);
