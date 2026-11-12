@@ -57,6 +57,9 @@ func Calibrate(kb *hid.Keyboard, grab *framegrab.Grabber) (*Calibration, error) 
 	thr, dark := detectThreshold(img)
 	mask := binarize(img, thr, dark)
 	w, h := img.Rect.Dx(), img.Rect.Dy()
+	if inkFraction(mask) < 0.01 {
+		return nil, fmt.Errorf("lattice frame has almost no text; is the remote logged in at a shell prompt, and is the video feed live?")
+	}
 
 	cellW, cellH := detectGrid(mask, w, h)
 	if cellW < 4 || cellW > 24 || cellH < 8 || cellH > 40 {
@@ -99,6 +102,9 @@ func Calibrate(kb *hid.Keyboard, grab *framegrab.Grabber) (*Calibration, error) 
 		g := extractGlyph(mask2, w, px+c*cellW, py+R*cellH, cellW, cellH)
 		cal.LearnGlyph(byte(32+c), g)
 	}
+	if err := cal.validate(); err != nil {
+		return nil, fmt.Errorf("glyph learning failed: %w", err)
+	}
 	fmt.Printf("calibrate: learned 95 glyphs (reference row %d)\n", R)
 
 	// 3. Restore a clean terminal.
@@ -107,6 +113,18 @@ func Calibrate(kb *hid.Keyboard, grab *framegrab.Grabber) (*Calibration, error) 
 	}
 	time.Sleep(300 * time.Millisecond)
 	return cal, nil
+}
+
+// inkFraction returns the fraction of mask pixels that are ink.
+func inkFraction(mask []uint8) float64 {
+	if len(mask) == 0 {
+		return 0
+	}
+	n := 0
+	for _, v := range mask {
+		n += int(v)
+	}
+	return float64(n) / float64(len(mask))
 }
 
 // findReferenceStart returns the index of the first row of the reference grid

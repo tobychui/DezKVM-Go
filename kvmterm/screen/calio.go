@@ -59,5 +59,8 @@ func LoadCalibration(path string) (*Calibration, error) {
 		}
 		c.glyphs[k[0]] = &glyph{w: cf.CellW, h: cf.CellH, rows: rows}
 	}
+	if err := c.validate(); err != nil {
+		return nil, err
+	}
 	return c, nil
 }
