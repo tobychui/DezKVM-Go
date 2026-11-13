@@ -10,11 +10,21 @@ import (
 	"bytes"
 	"fmt"
 	"image"
+	"io"
 	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 )
+
+// warmupTimeout bounds how long Grab keeps reading frames while waiting for
+// the capture card to produce a non-black frame. The MS2109 emits black
+// frames for about 1.5-2s each time its stream is opened after being idle.
+const warmupTimeout = 4 * time.Second
+
+// blankLevel is the channel value at or below which a pixel counts as black.
+const blankLevel = 16
 
 // Grabber captures still frames from a video device.
 type Grabber struct {
@@ -60,26 +70,53 @@ func DefaultDevice() string {
 	}
 }
 
-// Grab captures a single frame as an RGBA image.
+// Grab captures a single frame as an RGBA image. It skips the all-black
+// frames the capture card emits while its stream starts up; if every frame
+// within warmupTimeout is black, the last one is returned.
 func (g *Grabber) Grab() (*image.RGBA, error) {
 	args := append([]string{"-y", "-hide_banner", "-loglevel", "error"}, g.inputArgs...)
-	args = append(args, "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgba", "pipe:1")
+	args = append(args, "-f", "rawvideo", "-pix_fmt", "rgba", "pipe:1")
 
 	cmd := exec.Command("ffmpeg", args...)
-	var out bytes.Buffer
 	var stderr bytes.Buffer
-	cmd.Stdout = &out
 	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("ffmpeg %s: %w: %s", strings.Join(args, " "), err, stderr.String())
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, err
 	}
-
-	want := g.width * g.height * 4
-	if out.Len() < want {
-		return nil, fmt.Errorf("short frame: got %d bytes, want %d", out.Len(), want)
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("ffmpeg: %w", err)
 	}
 
 	img := image.NewRGBA(image.Rect(0, 0, g.width, g.height))
-	copy(img.Pix, out.Bytes()[:want])
+	frame := make([]byte, len(img.Pix))
+	deadline := time.Now().Add(warmupTimeout)
+	n := 0
+	for {
+		if _, err = io.ReadFull(stdout, frame); err != nil {
+			break
+		}
+		n++
+		copy(img.Pix, frame)
+		if !isBlank(img.Pix) || time.Now().After(deadline) {
+			break
+		}
+	}
+	_ = cmd.Process.Kill()
+	_ = cmd.Wait()
+
+	if n == 0 && err != nil {
+		return nil, fmt.Errorf("ffmpeg %s: %w: %s", strings.Join(args, " "), err, stderr.String())
+	}
 	return img, nil
+}
+
+// isBlank reports whether an RGBA buffer contains only near-black pixels.
+func isBlank(pix []byte) bool {
+	for i := 0; i < len(pix); i += 4 {
+		if pix[i] > blankLevel || pix[i+1] > blankLevel || pix[i+2] > blankLevel {
+			return false
+		}
+	}
+	return true
 }

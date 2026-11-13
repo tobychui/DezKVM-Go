@@ -12,6 +12,7 @@
 package screen
 
 import (
+	"fmt"
 	"image"
 	"math/bits"
 )
@@ -256,6 +257,22 @@ func buildCalibration(imgW, imgH, cellW, cellH, px, py int, thr uint8, dark bool
 func (c *Calibration) LearnGlyph(code byte, g glyph) {
 	gc := g
 	c.glyphs[code] = &gc
+}
+
+// validate checks that the learned glyph set is usable: every printable
+// character other than space must have some ink. A blank set means the
+// reference frame contained no text (e.g. the capture returned a black frame).
+func (c *Calibration) validate() error {
+	blank := 0
+	for code := byte(33); code <= 126; code++ {
+		if g, ok := c.glyphs[code]; !ok || g.inkCount() == 0 {
+			blank++
+		}
+	}
+	if blank > 0 {
+		return fmt.Errorf("%d of 94 printable glyphs are blank", blank)
+	}
+	return nil
 }
 
 // Render converts a captured frame into a text grid by matching every cell
