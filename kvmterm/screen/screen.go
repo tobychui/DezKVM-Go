@@ -32,6 +32,9 @@ type Calibration struct {
 type Text struct {
 	Cols, Rows int
 	Chars      [][]byte // Chars[r][c]
+	// CursorRow and CursorCol locate the remote text cursor, or are -1 when
+	// it was not visible in the frame (e.g. during the "off" phase of a blink).
+	CursorRow, CursorCol int
 }
 
 // glyph is a binarized cell bitmap (one uint64 per row, cellW bits wide).
@@ -279,7 +282,7 @@ func (c *Calibration) validate() error {
 // against the learned glyphs.
 func (c *Calibration) Render(img *image.RGBA) *Text {
 	mask := binarize(img, c.Threshold, c.Dark)
-	t := &Text{Cols: c.Cols, Rows: c.Rows, Chars: make([][]byte, c.Rows)}
+	t := &Text{Cols: c.Cols, Rows: c.Rows, Chars: make([][]byte, c.Rows), CursorRow: -1, CursorCol: -1}
 
 	for r := 0; r < c.Rows; r++ {
 		t.Chars[r] = make([]byte, c.Cols)
@@ -287,24 +290,64 @@ func (c *Calibration) Render(img *image.RGBA) *Text {
 			x0 := c.OriginX + col*c.CellW
 			y0 := c.OriginY + r*c.CellH
 			g := extractGlyph(mask, c.imgW, x0, y0, c.CellW, c.CellH)
-			if g.inkCount() == 0 {
-				t.Chars[r][col] = ' '
-				continue
-			}
-			bestCode := byte('?')
-			bestDist := int(^uint(0) >> 1)
-			for code, tpl := range c.glyphs {
-				d := glyphDistance(g, *tpl)
-				if d < bestDist {
-					bestDist, bestCode = d, code
+			code, dist := c.match(g)
+			if cc, cd, ok := c.matchUnderCursor(g); ok && cd < dist {
+				code, dist = cc, cd
+				if t.CursorRow < 0 {
+					t.CursorRow, t.CursorCol = r, col
 				}
 			}
 			// Reject poor matches (unknown glyphs, e.g. box-drawing chars).
-			if bestDist > g.inkCount()/3 {
-				bestCode = '?'
+			if dist > g.inkCount()/3 {
+				code = '?'
 			}
-			t.Chars[r][col] = bestCode
+			t.Chars[r][col] = code
 		}
 	}
 	return t
+}
+
+// match returns the learned glyph closest to g and its distance. A cell with
+// no ink is a space at distance 0.
+func (c *Calibration) match(g glyph) (byte, int) {
+	if g.inkCount() == 0 {
+		return ' ', 0
+	}
+	bestCode := byte('?')
+	bestDist := int(^uint(0) >> 1)
+	for code, tpl := range c.glyphs {
+		d := glyphDistance(g, *tpl)
+		if d < bestDist {
+			bestDist, bestCode = d, code
+		}
+	}
+	return bestCode, bestDist
+}
+
+// matchUnderCursor reads a cell that the remote text cursor may be drawn over,
+// returning the character beneath it and the match distance.
+//
+// The Linux console draws its cursor by inverting the bottom rows of the cell
+// (2 rows for the default underline, more for the "lower third/half" shapes),
+// so each candidate height is undone in turn and the best clean match wins.
+// Console fonts leave the bottom row of every glyph blank, so a cursor is
+// only considered when that row is fully inked.
+func (c *Calibration) matchUnderCursor(g glyph) (byte, int, bool) {
+	full := uint64(1)<<uint(g.w) - 1
+	if g.rows[g.h-1] != full {
+		return 0, 0, false
+	}
+	bestCode, bestDist, found := byte(0), 0, false
+	u := glyph{w: g.w, h: g.h, rows: append([]uint64(nil), g.rows...)}
+	for n := 1; n <= g.h/2; n++ {
+		u.rows[g.h-n] ^= full
+		code, dist := c.match(u)
+		if dist > u.inkCount()/3 {
+			continue
+		}
+		if !found || dist < bestDist {
+			bestCode, bestDist, found = code, dist, true
+		}
+	}
+	return bestCode, bestDist, found
 }

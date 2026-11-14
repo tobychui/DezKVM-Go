@@ -28,11 +28,15 @@ type App struct {
 	viewRow      int  // top remote row shown
 	followBottom bool // auto-scroll to keep the last content visible
 	lastViewRow  int
+
+	// Last remote cursor position seen; kept while the cursor blinks off.
+	cursorRow, cursorCol int
 }
 
 // New builds an App. interval is the background frame-poll period.
 func New(kb *hid.Keyboard, grab *framegrab.Grabber, cal *screen.Calibration, interval time.Duration) *App {
-	return &App{kb: kb, grab: grab, cal: cal, interval: interval, followBottom: true, lastViewRow: -1}
+	return &App{kb: kb, grab: grab, cal: cal, interval: interval, followBottom: true, lastViewRow: -1,
+		cursorRow: -1, cursorCol: -1}
 }
 
 // frameEvent is posted to the tcell event loop when a fresh frame is ready.
@@ -55,6 +59,7 @@ func (a *App) Run() error {
 	}
 	defer sc.Fini()
 	sc.HideCursor()
+	sc.SetCursorStyle(tcell.CursorStyleBlinkingUnderline)
 
 	// Fast interactive pacing for forwarded keystrokes.
 	a.kb.SetPacing(50*time.Millisecond, 15*time.Millisecond)
@@ -220,6 +225,15 @@ func (a *App) draw(t *screen.Text) {
 		}
 	}
 	a.last = t
+
+	if t.CursorRow >= 0 {
+		a.cursorRow, a.cursorCol = t.CursorRow, t.CursorCol
+	}
+	if y := a.cursorRow - a.viewRow; a.cursorRow >= 0 && y >= 0 && y < viewH && a.cursorCol < w {
+		a.sc.ShowCursor(a.cursorCol, y)
+	} else {
+		a.sc.HideCursor()
+	}
 
 	// Status bar.
 	scrollTag := "follow"
