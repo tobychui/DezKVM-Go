@@ -487,7 +487,7 @@ class HIDController {
             case 13: return 0x28; // Enter
             case 16: return 0xE1; // Left shift
             case 17: return 0xE0; // Left Ctrl
-            case 18: return 0xE6; // Left Alt
+            case 18: return 0xE2; // Left Alt
             case 19: return 0x48; // Pause
             case 20: return 0x39; // Caps Lock
             case 27: return 0x29; // Escape
