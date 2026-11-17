@@ -48,6 +48,8 @@ const HID_KEYS = {
     KEY_4: 52
 };
 
+const MODIFIER_KEYS = [HID_KEYS.CTRL, HID_KEYS.SHIFT, HID_KEYS.ALT, HID_KEYS.WIN];
+
 function initializeQuickAccess() {
     const $quickAccess = $('#quickAccess');
     const $dragBar = $('.quick-access-drag-bar');
@@ -348,13 +350,21 @@ async function executeHotkey(action) {
 async function sendKeyCombination(keycodes) {
     // Press all keys
     for (const keycode of keycodes) {
-        await controller.SendKeyboardPress(keycode);
+        if (MODIFIER_KEYS.includes(keycode)) {
+            await controller.SetModifierKey(keycode, false);
+        } else {
+            await controller.SendKeyboardPress(keycode);
+        }
         await sleep(10); // Small delay between key presses
     }
     
     // Release all keys in reverse order
     for (let i = keycodes.length - 1; i >= 0; i--) {
-        await controller.SendKeyboardRelease(keycodes[i]);
+        if (MODIFIER_KEYS.includes(keycodes[i])) {
+            await controller.UnsetModifierKey(keycodes[i], false);
+        } else {
+            await controller.SendKeyboardRelease(keycodes[i]);
+        }
         await sleep(10);
     }
 }
