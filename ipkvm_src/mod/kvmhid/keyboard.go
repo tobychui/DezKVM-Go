@@ -271,7 +271,7 @@ func javaScriptKeycodeToHIDOpcode(keycode uint8) uint8 {
 	case 17:
 		return 0xE0 // Left Ctrl
 	case 18:
-		return 0xE6 // Left Alt
+		return 0xE2 // Left Alt
 	case 19:
 		return 0x48 // Pause
 	case 20:
