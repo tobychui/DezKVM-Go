@@ -209,6 +209,26 @@ class HIDController {
             ScrollSensitivity: 1,
             AbsoluteMode: true
         };
+        // Tail of the transaction queue: every request/reply exchange runs
+        // after the previous one so they never share serialReadBuffer
+        this._txChain = Promise.resolve();
+        // Token of the current exclusive session (see runExclusive), or null
+        this._exclusiveOwner = null;
+    }
+
+    // Runs fn(owner) with exclusive use of the HID link. While it runs, sends
+    // that do not pass the owner token are dropped, so mouse moves, the mouse
+    // jiggler etc. cannot interleave with a scripted sequence of reports.
+    async runExclusive(fn) {
+        if (this._exclusiveOwner) throw new Error('HID link is busy');
+        const owner = {};
+        this._exclusiveOwner = owner;
+        try {
+            await this._txChain; // let in-flight transactions finish first
+            return await fn(owner);
+        } finally {
+            this._exclusiveOwner = null;
+        }
     }
 
     // Calculates checksum for a given array of bytes
@@ -228,8 +248,20 @@ class HIDController {
         await this.sendPacketAndWait(packet, 0x0F);
     }
 
-    // Sends a packet over serial and waits for a reply with a specific command code
-    async sendPacketAndWait(packet, replyCmd) {
+    // Sends a packet over serial and waits for a reply with a specific command code.
+    // Transactions are serialized; during an exclusive session (runExclusive)
+    // only callers passing the session's owner token are sent.
+    sendPacketAndWait(packet, replyCmd, owner) {
+        if (this._exclusiveOwner && owner !== this._exclusiveOwner) {
+            return Promise.resolve({ success: false, dropped: true });
+        }
+        const run = () => this._transact(packet, replyCmd);
+        const result = this._txChain.then(run, run);
+        this._txChain = result.catch(() => {});
+        return result;
+    }
+
+    async _transact(packet, replyCmd) {
         const timeout = 300; // 300ms timeout
         const succReplyByte = replyCmd | 0x80;
         const errorReplyByte = replyCmd | 0xC0;
@@ -905,38 +937,51 @@ videoOverlayElement.addEventListener('click', function () {
     }
 });
 
+// Mouse moves are coalesced: HID transactions are serialized, so while one
+// move is being sent later events only update the target position (absolute)
+// or accumulate deltas (relative) instead of queueing a backlog of packets.
+const mouseMove = { sending: false, absPending: false, dx: 0, dy: 0 };
+const clampByte = (v) => Math.max(-127, Math.min(127, v)); // signed byte, skip 0x80
+
+async function flushMouseMoves() {
+    if (mouseMove.sending) return;
+    mouseMove.sending = true;
+    try {
+        while (mouseMove.absPending || mouseMove.dx || mouseMove.dy) {
+            if (mouseMove.absPending) {
+                mouseMove.absPending = false;
+                const { x, y } = controller.hidState.MousePosition;
+                await controller.MouseMoveAbsolute(x & 0xFF, (x >> 8) & 0xFF, y & 0xFF, (y >> 8) & 0xFF);
+            } else {
+                const dx = clampByte(mouseMove.dx), dy = clampByte(mouseMove.dy);
+                mouseMove.dx -= dx;
+                mouseMove.dy -= dy;
+                // Convert to unsigned byte for the HID packet
+                await controller.MouseMoveRelative(dx < 0 ? 256 + dx : dx, dy < 0 ? 256 + dy : dy, 0);
+            }
+        }
+    } finally {
+        mouseMove.sending = false;
+    }
+}
+
 // Mouse move – supports both absolute and relative modes
-videoOverlayElement.addEventListener('mousemove', async (e) => {
+videoOverlayElement.addEventListener('mousemove', (e) => {
     if (controller.Config.AbsoluteMode) {
         // Absolute positioning
         const rect = videoOverlayElement.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const width = rect.width;
-        const height = rect.height;
-        const offsetX = x / width;
-        const offsetY = y / height;
-
-        const absX = Math.round(offsetX * 4095);
-        const absY = Math.round(offsetY * 4095);
-        controller.hidState.MousePosition.x = absX;
-        controller.hidState.MousePosition.y = absY;
-        await controller.MouseMoveAbsolute(absX & 0xFF, (absX >> 8) & 0xFF, absY & 0xFF, (absY >> 8) & 0xFF);
+        const offsetX = (e.clientX - rect.left) / rect.width;
+        const offsetY = (e.clientY - rect.top) / rect.height;
+        controller.hidState.MousePosition.x = Math.round(offsetX * 4095);
+        controller.hidState.MousePosition.y = Math.round(offsetY * 4095);
+        mouseMove.absPending = true;
     } else {
-        // Relative positioning – use movementX/Y for pointer-locked delta
-        let dx = Math.round(e.movementX * relativeMouseSensitivity);
-        let dy = Math.round(e.movementY * relativeMouseSensitivity);
-
-        // Clamp to signed-byte range (-127 to 127, skip 0x80)
-        dx = Math.max(-127, Math.min(127, dx));
-        dy = Math.max(-127, Math.min(127, dy));
-
-        // Convert to unsigned byte for the HID packet
-        if (dx < 0) dx = 256 + dx;
-        if (dy < 0) dy = 256 + dy;
-
-        await controller.MouseMoveRelative(dx, dy, 0);
+        // Relative positioning – use movementX/Y for pointer-locked delta.
+        // Cap the backlog so a stalled link cannot cause a large jump later.
+        mouseMove.dx = Math.max(-1024, Math.min(1024, mouseMove.dx + Math.round(e.movementX * relativeMouseSensitivity)));
+        mouseMove.dy = Math.max(-1024, Math.min(1024, mouseMove.dy + Math.round(e.movementY * relativeMouseSensitivity)));
     }
+    flushMouseMoves().catch(() => {});
 });
 
 // Context menu disable (for right click)

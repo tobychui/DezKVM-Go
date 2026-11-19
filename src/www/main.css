@@ -628,6 +628,19 @@ body {
     z-index: 600;
     overflow: hidden;
     background: var(--kt-bg);
+    /* Mouse mode (default): clicks and moves fall through to #touchscreen so
+       the remote mouse keeps working; only the toolbar/messages are hit */
+    pointer-events: none;
+}
+
+.kvm-term-screen {
+    pointer-events: none;
+}
+
+/* Select mode (toolbar toggle): the overlay captures the mouse for text selection */
+#kvmTermOverlay.kt-select,
+#kvmTermOverlay.kt-select .kvm-term-screen {
+    pointer-events: auto;
 }
 
 #kvmTermOverlay.kt-light {
@@ -636,7 +649,8 @@ body {
 }
 
 /* Not rendering (uncalibrated / calibrating): let the video show through */
-#kvmTermOverlay.kt-idle {
+#kvmTermOverlay.kt-idle,
+#kvmTermOverlay.kt-idle.kt-select {
     background: transparent;
     pointer-events: none;
 }

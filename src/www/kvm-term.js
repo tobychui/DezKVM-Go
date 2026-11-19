@@ -30,6 +30,7 @@ const kt = {
     frameId: 0,
     calibrating: false,
     abort: false,
+    hidOwner: null,     // exclusive HID session token while calibrating
     lastText: null,
     rowHtml: [],
     layoutKey: '',
@@ -49,6 +50,7 @@ ktOverlay.innerHTML = `
     <div id="kvmTermMessage" class="kvm-term-message"></div>
     <div id="kvmTermToolbar" class="kvm-term-toolbar">
         <span id="kvmTermStatus"></span>
+        <button id="kvmTermSelectBtn" class="ui mini inverted basic icon button" title="Select text (mouse goes to the terminal text instead of the remote machine)" onclick="toggleKvmTermSelectMode()"><i class="i cursor icon"></i></button>
         <button id="kvmTermFitBtn" class="ui mini inverted basic icon button" title="Scale to fit" onclick="toggleTerminalScaleToFit()"><i class="expand arrows alternate icon"></i></button>
         <button class="ui mini inverted basic icon button" title="Calibrate terminal" onclick="kvmTermCalibrate()"><i class="crosshairs icon"></i></button>
         <button class="ui mini inverted basic icon button" title="Copy screen text" onclick="kvmTermCopyScreen()"><i class="copy icon"></i></button>
@@ -81,10 +83,22 @@ const KT_COLORS = (() => {
 
 /* ---------- Enable / disable ---------- */
 
+// Sets a settings toggle and keeps its Fomantic checkbox wrapper in sync.
+// The native property is set first so 'set checked'/'set unchecked' only
+// update the wrapper and do not re-fire the input's onchange handler.
+function ktSyncCheckbox(id, checked) {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.checked = checked;
+    const wrap = input.closest('.ui.checkbox');
+    if (wrap && typeof $ === 'function' && $.fn.checkbox) {
+        $(wrap).checkbox(checked ? 'set checked' : 'set unchecked');
+    }
+}
+
 function setKvmTermEnabled(enabled, silent) {
     enabled = !!enabled;
-    const chk = document.getElementById('chkSettingsTerminalMode');
-    if (chk) chk.checked = enabled;
+    ktSyncCheckbox('chkSettingsTerminalMode', enabled);
     if (enabled === kvmTermEnabled) return;
     kvmTermEnabled = enabled;
 
@@ -93,8 +107,7 @@ function setKvmTermEnabled(enabled, silent) {
         if (typeof imageSharpeningEnabled !== 'undefined' && imageSharpeningEnabled) {
             imageSharpeningEnabled = false;
             if (typeof window.stopSharpeningPipeline === 'function') window.stopSharpeningPipeline();
-            const sharpenChk = document.getElementById('chkSettingsImageSharpening');
-            if (sharpenChk) sharpenChk.checked = false;
+            ktSyncCheckbox('chkSettingsImageSharpening', false);
             if (!silent) {
                 $('body').toast({ message: '<i class="magic icon"></i> Image sharpening disabled (not compatible with terminal mode)' });
             }
@@ -128,12 +141,31 @@ function kvmTermExit() {
     if (typeof saveSettingsToLocalStorage === 'function') saveSettingsToLocalStorage();
 }
 
+/* ---------- Mouse / select mode ---------- */
+
+// Mouse mode (default) lets the mouse fall through the overlay to the remote
+// machine; select mode lets it select the terminal text instead
+function setKvmTermSelectMode(enabled) {
+    enabled = !!enabled;
+    ktOverlay.classList.toggle('kt-select', enabled);
+    const btn = document.getElementById('kvmTermSelectBtn');
+    btn.classList.toggle('active', enabled);
+    btn.title = enabled
+        ? 'Back to mouse control (mouse goes to the remote machine)'
+        : 'Select text (mouse goes to the terminal text instead of the remote machine)';
+    // A leftover selection would make Ctrl+C copy instead of reaching the remote
+    if (!enabled && ktSelectionActive()) window.getSelection().removeAllRanges();
+}
+
+function toggleKvmTermSelectMode() {
+    setKvmTermSelectMode(!ktOverlay.classList.contains('kt-select'));
+}
+
 /* ---------- Scale to fit ---------- */
 
 function setKvmTermScaleToFit(enabled) {
     kt.fit = !!enabled;
-    const chk = document.getElementById('chkSettingsTerminalScaleToFit');
-    if (chk) chk.checked = kt.fit;
+    ktSyncCheckbox('chkSettingsTerminalScaleToFit', kt.fit);
     const btn = document.getElementById('kvmTermFitBtn');
     btn.title = kt.fit ? 'Show at video size' : 'Scale to fit';
     btn.querySelector('i').className = kt.fit ? 'compress arrows alternate icon' : 'expand arrows alternate icon';
@@ -573,7 +605,8 @@ const ktSleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 async function ktReport(mod, key) {
     const packet = [0x57, 0xAB, 0x00, 0x02, 0x08, mod, 0x00, key, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
     packet[13] = controller.calcChecksum(packet.slice(0, 13));
-    await controller.sendPacketAndWait(packet, 0x02);
+    // kt.hidOwner is the exclusive HID session held for the calibration run
+    await controller.sendPacketAndWait(packet, 0x02, kt.hidOwner);
 }
 
 async function ktTap(mod, key) {
@@ -636,25 +669,37 @@ async function kvmTermCalibrate() {
     controller.hidState.KeyboardButtons = [0, 0, 0, 0, 0, 0];
 
     try {
-        ktCalibrationStep('Step 1/3 – Measuring the character grid…');
-        await ktClearScreen();
-        await ktSleep(300);
-        await ktTypeString(KvmTermEngine.LATTICE_CMD + '\n');
-        await ktSleep(1200);
-        let f = ktGrabPixels();
-        const geom = KvmTermEngine.measureGrid(f.data, f.width, f.height);
+        // Hold the HID link for the whole sequence: other HID traffic (mouse
+        // moves, the mouse jiggler, ...) is dropped until calibration ends
+        const { geom, result } = await controller.runExclusive(async (owner) => {
+            kt.hidOwner = owner;
+            try {
+                ktCalibrationStep('Step 1/3 – Measuring the character grid…');
+                await ktClearScreen();
+                await ktSleep(300);
+                await ktTypeString(KvmTermEngine.LATTICE_CMD + '\n');
+                await ktSleep(1200);
+                let f = ktGrabPixels();
+                const geom = KvmTermEngine.measureGrid(f.data, f.width, f.height);
 
-        ktCalibrationStep(`Step 2/3 – Learning the font (${geom.cols}×${geom.rows} grid, ${geom.cellW}×${geom.cellH} px cells)…`);
-        await ktClearScreen();
-        await ktSleep(300);
-        await ktTypeString(KvmTermEngine.REFERENCE_CMD + '\n');
-        await ktSleep(1200);
-        f = ktGrabPixels();
-        const result = KvmTermEngine.learnGlyphs(f.data, f.width, f.height, geom);
+                ktCalibrationStep(`Step 2/3 – Learning the font (${geom.cols}×${geom.rows} grid, ${geom.cellW}×${geom.cellH} px cells)…`);
+                await ktClearScreen();
+                await ktSleep(300);
+                await ktTypeString(KvmTermEngine.REFERENCE_CMD + '\n');
+                await ktSleep(1200);
+                f = ktGrabPixels();
+                const result = KvmTermEngine.learnGlyphs(f.data, f.width, f.height, geom);
 
-        ktCalibrationStep('Step 3/3 – Cleaning up…');
-        await ktClearScreen();
-        await ktSleep(300);
+                ktCalibrationStep('Step 3/3 – Cleaning up…');
+                await ktClearScreen();
+                await ktSleep(300);
+                return { geom, result };
+            } finally {
+                // Never leave a key held on the remote machine (e.g. after Esc)
+                await ktReport(0x00, 0x00).catch(() => {});
+                kt.hidOwner = null;
+            }
+        });
 
         setKvmTermCalibration(result.calibration);
         if (typeof saveSettingsToLocalStorage === 'function') saveSettingsToLocalStorage();
