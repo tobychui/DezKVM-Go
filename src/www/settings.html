@@ -312,6 +312,27 @@
                         <label>Enable image sharpening</label>
                     </div>
                 </div>
+
+                <div class="settings-field">
+                    <label>Terminal Mode</label>
+                    <p class="field-description">Reconstructs the remote text console from the video feed and shows it as a crisp, selectable text terminal on top of the capture area. Requires a one-time calibration while the remote machine is at a Linux shell prompt. Cannot be used together with image sharpening.</p>
+                    <div class="ui toggle checkbox" id="terminalModeCheckbox">
+                        <input type="checkbox" id="chkSettingsTerminalMode" class="auto-save-setting" onchange="toggleTerminalMode()">
+                        <label>Enable terminal mode</label>
+                    </div>
+                    <br>
+                    <div class="ui toggle checkbox" id="terminalScaleToFitCheckbox" style="margin-top: 0.6em;">
+                        <input type="checkbox" id="chkSettingsTerminalScaleToFit" class="auto-save-setting" onchange="setKvmTermScaleToFit(this.checked)">
+                        <label>Scale to fit (zoom the terminal area to fill the window)</label>
+                    </div>
+                    <p id="terminalCalibrationStatus" class="field-description" style="margin-top: 0.8em;">Not calibrated</p>
+                    <button class="ui small basic button" onclick="kvmTermCalibrate()">
+                        <i class="crosshairs icon"></i> Calibrate
+                    </button>
+                    <button class="ui small basic button" onclick="kvmTermClearCalibration()">
+                        <i class="trash icon"></i> Clear Calibration
+                    </button>
+                </div>
             </div>
 
             <!-- Audio -->
@@ -545,6 +566,9 @@ const SETTINGS_TEMPLATE = {
     baudrate: 115200,
     saveToLocalStorage: true,
     imageSharpening: false,
+    terminalMode: false,
+    terminalScaleToFit: false,
+    terminalCalibration: null,
     videoDeviceOverride: 'auto',
     stackKeysEnabled: true,
     stackKeyToggle: 'ShiftRight',
@@ -626,6 +650,9 @@ function getCurrentSettings() {
     settings.askOnPaste = document.getElementById('chkSettingsAskOnPaste')?.checked ?? SETTINGS_TEMPLATE.askOnPaste;
     settings.relativeMouseSensitivity = (typeof relativeMouseSensitivity !== 'undefined') ? relativeMouseSensitivity : SETTINGS_TEMPLATE.relativeMouseSensitivity;
     settings.imageSharpening = document.getElementById('chkSettingsImageSharpening')?.checked ?? SETTINGS_TEMPLATE.imageSharpening;
+    settings.terminalMode = (typeof kvmTermEnabled !== 'undefined') ? kvmTermEnabled : SETTINGS_TEMPLATE.terminalMode;
+    settings.terminalScaleToFit = (typeof getKvmTermScaleToFit === 'function') ? getKvmTermScaleToFit() : SETTINGS_TEMPLATE.terminalScaleToFit;
+    settings.terminalCalibration = (typeof getKvmTermCalibration === 'function') ? getKvmTermCalibration() : SETTINGS_TEMPLATE.terminalCalibration;
     // Read from the variable, not the dropdown - the dropdown may hold an unconfirmed pick
     settings.videoDeviceOverride = (typeof getVideoDeviceOverride === 'function') ? getVideoDeviceOverride() : SETTINGS_TEMPLATE.videoDeviceOverride;
     settings.stackKeysEnabled = document.getElementById('chkSettingsStackKeysEnabled')?.checked ?? SETTINGS_TEMPLATE.stackKeysEnabled;
@@ -813,6 +840,17 @@ function applySettingsToUI(settings) {
         }
     }
 
+    // Apply terminal mode (after image sharpening: enabling it turns sharpening off)
+    if (settings.hasOwnProperty('terminalCalibration') && typeof setKvmTermCalibration === 'function') {
+        setKvmTermCalibration(settings.terminalCalibration);
+    }
+    if (settings.hasOwnProperty('terminalScaleToFit') && typeof setKvmTermScaleToFit === 'function') {
+        setKvmTermScaleToFit(settings.terminalScaleToFit);
+    }
+    if (settings.hasOwnProperty('terminalMode') && typeof setKvmTermEnabled === 'function') {
+        setKvmTermEnabled(settings.terminalMode, true);
+    }
+
     // Apply video input device override. startStream() already picked this up straight
     // from storage on boot, so this only needs to bring the variable and the UI in line.
     if (settings.hasOwnProperty('videoDeviceOverride')) {
@@ -909,6 +947,8 @@ if(typeof $ !== 'undefined' && $.fn.checkbox){
     $('#askOnPasteCheckbox').checkbox();
     $('#saveSettingsCheckbox').checkbox();
     $('#imageSharpeningCheckbox').checkbox();
+    $('#terminalModeCheckbox').checkbox();
+    $('#terminalScaleToFitCheckbox').checkbox();
     $('#stackKeysEnabledCheckbox').checkbox();
 }
 
@@ -920,6 +960,11 @@ $(".settings-category-menu .item").on("click", function(){
     $(".settings-tab-content").removeClass("active");
     $(".settings-tab-content[data-tab='" + tab + "']").addClass("active");
 });
+
+/* Show the current terminal calibration */
+if(typeof updateKvmTermCalibrationStatus === 'function'){
+    updateKvmTermCalibrationStatus();
+}
 
 /* Populate capture properties table on load */
 if(typeof updateCapturePropertiesTable === 'function'){
