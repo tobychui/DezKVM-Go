@@ -100,6 +100,33 @@
         text-align: center;
     }
 
+    .hotkey-btn:disabled {
+        filter: grayscale(1);
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .hotkey-grid.compact {
+        grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+        gap: 8px;
+    }
+
+    .hotkey-grid.compact .hotkey-btn {
+        padding: 10px 6px;
+        gap: 2px;
+    }
+
+    .hotkey-hint {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 11px;
+        margin-top: 8px;
+    }
+
+    /* Fomantic modals sit at z-index 1000, below this panel */
+    .ui.dimmer.modals:has(#hotkeyConfirmModal) {
+        z-index: 1600;
+    }
+
     /* Responsive design */
     @media (max-width: 768px) {
         .quick-access-panel {
@@ -391,6 +418,89 @@
                     <small>Lock Screen</small>
                 </button>
             </div>
+        </div>
+
+        <!-- Linux Virtual Console Hotkeys -->
+        <div class="hotkey-section">
+            <h4 class="section-title"><i class="terminal icon"></i> Linux Virtual Consoles</h4>
+            <div class="hotkey-grid compact">
+                <button class="hotkey-btn" data-action="ctrl-alt-f1">
+                    <span>tty1</span>
+                    <small>Ctrl+Alt+F1</small>
+                </button>
+                <button class="hotkey-btn" data-action="ctrl-alt-f2">
+                    <span>tty2</span>
+                    <small>Ctrl+Alt+F2</small>
+                </button>
+                <button class="hotkey-btn" data-action="ctrl-alt-f3">
+                    <span>tty3</span>
+                    <small>Ctrl+Alt+F3</small>
+                </button>
+                <button class="hotkey-btn" data-action="ctrl-alt-f4">
+                    <span>tty4</span>
+                    <small>Ctrl+Alt+F4</small>
+                </button>
+                <button class="hotkey-btn" data-action="ctrl-alt-f5">
+                    <span>tty5</span>
+                    <small>Ctrl+Alt+F5</small>
+                </button>
+                <button class="hotkey-btn" data-action="ctrl-alt-f6">
+                    <span>tty6</span>
+                    <small>Ctrl+Alt+F6</small>
+                </button>
+                <button class="hotkey-btn" data-action="alt-left" title="Previous virtual console (text console only)">
+                    <span>Prev</span>
+                    <small>Alt+←</small>
+                </button>
+                <button class="hotkey-btn" data-action="alt-right" title="Next virtual console (text console only)">
+                    <span>Next</span>
+                    <small>Alt+→</small>
+                </button>
+            </div>
+            <div class="hotkey-hint">Prev / Next only work on the text console, not from a graphical session.</div>
+        </div>
+
+        <!-- Linux Magic SysRq Hotkeys -->
+        <div class="hotkey-section">
+            <h4 class="section-title"><i class="life ring icon"></i> Linux Magic SysRq</h4>
+            <div class="hotkey-grid">
+                <button class="hotkey-btn" data-action="sysrq-reisub">
+                    <i class="life ring icon"></i>
+                    <span>Alt+SysRq+REISUB</span>
+                    <small>Emergency Reboot</small>
+                </button>
+                <button class="hotkey-btn" data-action="sysrq-f">
+                    <i class="microchip icon"></i>
+                    <span>Alt+SysRq+F</span>
+                    <small>OOM Killer</small>
+                </button>
+                <button class="hotkey-btn" data-action="sysrq-s">
+                    <i class="hdd icon"></i>
+                    <span>Alt+SysRq+S</span>
+                    <small>Sync Disks</small>
+                </button>
+                <button class="hotkey-btn" data-action="sysrq-u">
+                    <i class="lock icon"></i>
+                    <span>Alt+SysRq+U</span>
+                    <small>Remount Read-Only</small>
+                </button>
+                <button class="hotkey-btn" data-action="sysrq-k">
+                    <i class="ban icon"></i>
+                    <span>Alt+SysRq+K</span>
+                    <small>Kill Console Tasks</small>
+                </button>
+                <button class="hotkey-btn" data-action="sysrq-b">
+                    <i class="redo alternate icon"></i>
+                    <span>Alt+SysRq+B</span>
+                    <small>Reboot, No Sync</small>
+                </button>
+                <button class="hotkey-btn" data-action="sysrq-o">
+                    <i class="power off icon"></i>
+                    <span>Alt+SysRq+O</span>
+                    <small>Power Off, No Sync</small>
+                </button>
+            </div>
+            <div class="hotkey-hint">For emergencies, when the target no longer responds to normal input. Some commands may be disabled on the target (see <code>kernel.sysrq</code>).</div>
         </div>
     </div>
 </div>

@@ -22,9 +22,20 @@ const HID_KEYS = {
     TAB: 9,
     SPACE: 32,
     PRINTSCREEN: 44,
+    SYSRQ: 44, // Same as Print Screen
+    LEFT: 37,
+    RIGHT: 39,
+    F1: 112,
     F2: 113,
+    F3: 114,
     F4: 115,
     F5: 116,
+    F6: 117,
+    B: 66,
+    I: 73,
+    K: 75,
+    O: 79,
+    U: 85,
     L: 76,
     D: 68,
     E: 69,
@@ -47,6 +58,42 @@ const HID_KEYS = {
     KEY_3: 51,
     KEY_4: 52
 };
+
+const MODIFIER_KEYS = [HID_KEYS.CTRL, HID_KEYS.SHIFT, HID_KEYS.ALT, HID_KEYS.WIN];
+
+// Hotkeys that ask for confirmation before being sent
+const HOTKEY_CONFIRMATIONS = {
+    'sysrq-reisub': {
+        title: 'Emergency Reboot (REISUB)?',
+        message: 'This terminates and then kills all processes, syncs disks, remounts filesystems read-only and reboots the target machine. The full sequence takes about 12 seconds.'
+    },
+    'sysrq-f': {
+        title: 'Run the OOM Killer?',
+        message: 'This makes the kernel kill the process it considers the best candidate to free memory, usually the one using the most memory.'
+    },
+    'sysrq-k': {
+        title: 'Kill Console Tasks?',
+        message: 'This kills all processes on the current virtual console of the target machine, including any login session on it.'
+    },
+    'sysrq-b': {
+        title: 'Reboot Immediately?',
+        message: 'This reboots the target machine immediately, without syncing or unmounting filesystems. Unsaved data will be lost.'
+    },
+    'sysrq-o': {
+        title: 'Power Off Immediately?',
+        message: 'This powers off the target machine immediately, without syncing or unmounting filesystems. Unsaved data will be lost.'
+    }
+};
+
+// Delays give each step time to finish before the next one starts
+const REISUB_STEPS = [
+    { key: HID_KEYS.R, label: 'R: Keyboard out of raw mode', delay: 1000 },
+    { key: HID_KEYS.E, label: 'E: Terminate all processes', delay: 3000 },
+    { key: HID_KEYS.I, label: 'I: Kill all processes', delay: 2000 },
+    { key: HID_KEYS.S, label: 'S: Sync disks', delay: 3000 },
+    { key: HID_KEYS.U, label: 'U: Remount read-only', delay: 3000 },
+    { key: HID_KEYS.B, label: 'B: Reboot', delay: 0 }
+];
 
 function initializeQuickAccess() {
     const $quickAccess = $('#quickAccess');
@@ -151,6 +198,10 @@ async function executeHotkey(action) {
         $('body').toast({
             message: '<i class="red circle times icon"></i> HID not connected',
         });
+        return;
+    }
+
+    if (HOTKEY_CONFIRMATIONS[action] && !(await confirmHotkey(HOTKEY_CONFIRMATIONS[action]))) {
         return;
     }
     
@@ -325,6 +376,68 @@ async function executeHotkey(action) {
                 await sendKeyCombination([HID_KEYS.WIN, HID_KEYS.L]);
                 break;
             
+            // Linux Virtual Console Hotkeys
+            case 'ctrl-alt-f1':
+                await sendKeyCombination([HID_KEYS.CTRL, HID_KEYS.ALT, HID_KEYS.F1]);
+                break;
+            
+            case 'ctrl-alt-f2':
+                await sendKeyCombination([HID_KEYS.CTRL, HID_KEYS.ALT, HID_KEYS.F2]);
+                break;
+            
+            case 'ctrl-alt-f3':
+                await sendKeyCombination([HID_KEYS.CTRL, HID_KEYS.ALT, HID_KEYS.F3]);
+                break;
+            
+            case 'ctrl-alt-f4':
+                await sendKeyCombination([HID_KEYS.CTRL, HID_KEYS.ALT, HID_KEYS.F4]);
+                break;
+            
+            case 'ctrl-alt-f5':
+                await sendKeyCombination([HID_KEYS.CTRL, HID_KEYS.ALT, HID_KEYS.F5]);
+                break;
+            
+            case 'ctrl-alt-f6':
+                await sendKeyCombination([HID_KEYS.CTRL, HID_KEYS.ALT, HID_KEYS.F6]);
+                break;
+            
+            case 'alt-left':
+                await sendKeyCombination([HID_KEYS.ALT, HID_KEYS.LEFT]);
+                break;
+            
+            case 'alt-right':
+                await sendKeyCombination([HID_KEYS.ALT, HID_KEYS.RIGHT]);
+                break;
+            
+            // Linux Magic SysRq Hotkeys
+            case 'sysrq-reisub':
+                await sendSysRqReisub();
+                break;
+            
+            case 'sysrq-f':
+                await sendKeyCombination([HID_KEYS.ALT, HID_KEYS.SYSRQ, HID_KEYS.F]);
+                break;
+            
+            case 'sysrq-s':
+                await sendKeyCombination([HID_KEYS.ALT, HID_KEYS.SYSRQ, HID_KEYS.S]);
+                break;
+            
+            case 'sysrq-u':
+                await sendKeyCombination([HID_KEYS.ALT, HID_KEYS.SYSRQ, HID_KEYS.U]);
+                break;
+            
+            case 'sysrq-k':
+                await sendKeyCombination([HID_KEYS.ALT, HID_KEYS.SYSRQ, HID_KEYS.K]);
+                break;
+            
+            case 'sysrq-b':
+                await sendKeyCombination([HID_KEYS.ALT, HID_KEYS.SYSRQ, HID_KEYS.B]);
+                break;
+            
+            case 'sysrq-o':
+                await sendKeyCombination([HID_KEYS.ALT, HID_KEYS.SYSRQ, HID_KEYS.O]);
+                break;
+            
             default:
                 console.warn('Unknown hotkey action:', action);
                 return;
@@ -348,15 +461,78 @@ async function executeHotkey(action) {
 async function sendKeyCombination(keycodes) {
     // Press all keys
     for (const keycode of keycodes) {
-        await controller.SendKeyboardPress(keycode);
+        if (MODIFIER_KEYS.includes(keycode)) {
+            await controller.SetModifierKey(keycode, false);
+        } else {
+            await controller.SendKeyboardPress(keycode);
+        }
         await sleep(10); // Small delay between key presses
     }
     
     // Release all keys in reverse order
     for (let i = keycodes.length - 1; i >= 0; i--) {
-        await controller.SendKeyboardRelease(keycodes[i]);
+        if (MODIFIER_KEYS.includes(keycodes[i])) {
+            await controller.UnsetModifierKey(keycodes[i], false);
+        } else {
+            await controller.SendKeyboardRelease(keycodes[i]);
+        }
         await sleep(10);
     }
+}
+
+// Send the REISUB Magic SysRq sequence, pausing between steps
+async function sendSysRqReisub() {
+    const $btn = $('.hotkey-btn[data-action="sysrq-reisub"]');
+    $btn.prop('disabled', true);
+    try {
+        for (const step of REISUB_STEPS) {
+            await sendKeyCombination([HID_KEYS.ALT, HID_KEYS.SYSRQ, step.key]);
+            $('body').toast({
+                message: '<i class="life ring icon"></i> SysRq ' + step.label,
+                displayTime: Math.max(step.delay, 1000)
+            });
+            await sleep(step.delay);
+        }
+    } finally {
+        $btn.prop('disabled', false);
+    }
+}
+
+// Ask the user to confirm a hotkey. Resolves to true if approved.
+function confirmHotkey(confirmation) {
+    return new Promise(resolve => {
+        let approved = false;
+        $('#hotkeyConfirmModal').remove();
+        const $modal = $(`
+            <div class="ui small modal" id="hotkeyConfirmModal">
+                <div class="header">
+                    <i class="orange exclamation triangle icon"></i> ${confirmation.title}
+                </div>
+                <div class="content">
+                    <p>${confirmation.message}</p>
+                </div>
+                <div class="actions">
+                    <div class="ui cancel button">
+                        <i class="times icon"></i> Cancel
+                    </div>
+                    <div class="ui red ok button">
+                        <i class="check icon"></i> Send
+                    </div>
+                </div>
+            </div>
+        `);
+        $('body').append($modal);
+        $modal.modal({
+            closable: true,
+            onApprove: function() {
+                approved = true;
+            },
+            onHidden: function() {
+                $modal.remove();
+                resolve(approved);
+            }
+        }).modal('show');
+    });
 }
 
 // Helper function for delays
